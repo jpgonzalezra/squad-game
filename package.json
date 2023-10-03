@@ -1,0 +1,30 @@
+{
+  "name": "squad-game",
+  "version": "1.0.0",
+  "description": "Game Poc",
+  "author": "Joaquin Gonzalez",
+  "license": "MIT",
+  "files": [
+    "src/**/*.sol"
+  ],
+  "devDependencies": {
+    "prettier": "^2.7.1",
+    "prettier-plugin-solidity": "^1.0.0-beta.19"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jpgonzalezra/squad-game.git"
+  },
+  "bugs": {
+    "url": "https://github.com/jpgonzalezra/squad-game/issues"
+  },
+  "scripts": {
+    "setup": "make clean && make build",
+    "sync": "make update",
+    "test": "make test",
+    "snapshot": "make snapshot",
+    "format": "make format",
+    "lint": "make lint",
+    "all": "make all"
+  }
+}
