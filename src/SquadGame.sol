@@ -16,7 +16,7 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
     VRFCoordinatorV2Interface immutable COORDINATOR;
 
     // events
-    event SquadCreated(bytes32 squadId, SquadAttributes attributes);
+    event SquadCreated(bytes32 squadId, uint8[10] attributes);
     event MissionCreated(uint8 missionId);
     event JoinedMission(bytes32 squadId, uint8 missionId);
     event StartedMission(uint8 missionId, uint256 requestId);
@@ -40,7 +40,6 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
 
     // miscellaneous constants
     uint256 public participationFee = 0.1 ether;
-    uint256 public upgradeSquadFee = 0.01 ether;
 
     error InvalidAttribute();
     error AttributesSumNot50();
@@ -57,33 +56,16 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
     error InvalidMissionId();
 
     // external factors stagorage
-    struct ExternalFactors {
-        uint8 efactor1; // (0, 33: Low | 33, 66: Medimum | 66, 100: High)
-        uint8 efactor2; // (0, 33: Low | 33, 66: Medimum | 66, 100: High)
-        uint8 efactor3; // (0, 33: Low | 33, 66: Medimum | 66, 100: High)
-        uint8 efactor4; // (0, 33: Low | 33, 66: Medimum | 66, 100: High)
-        uint8 efactor5; // (0, 33: Low | 33, 66: Medimum | 66, 100: High)
-    }
+    // struct Scenary {
 
-    ExternalFactors[] public externalFactors;
+    // }
+
+    // Scenary[] public scenarios;
 
     // squad storage
     struct Squad {
-        SquadAttributes attributes;
+        uint8[10] attributes;
         SquadState state;
-    }
-
-    struct SquadAttributes {
-        uint8 attr1;
-        uint8 attr2;
-        uint8 attr3;
-        uint8 attr4;
-        uint8 attr5;
-        uint8 attr6;
-        uint8 attr7;
-        uint8 attr8;
-        uint8 attr9;
-        uint8 attr10;
     }
 
     enum SquadState {
@@ -138,21 +120,8 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
 
     /// @notice Create a squad team with the given attributes.
     /// @param _attributes Attributes of the squad team.
-    function createSquad(SquadAttributes calldata _attributes) external {
-        bytes32 squadId = keccak256(
-            abi.encodePacked(
-                _attributes.attr1,
-                _attributes.attr2,
-                _attributes.attr3,
-                _attributes.attr4,
-                _attributes.attr5,
-                _attributes.attr6,
-                _attributes.attr7,
-                _attributes.attr8,
-                _attributes.attr9,
-                _attributes.attr10
-            )
-        );
+    function createSquad(uint8[10] calldata _attributes) external {
+        bytes32 squadId = keccak256(abi.encodePacked(_attributes));
         if (squadInfoBySquadId[squadId].state != SquadState.Unformed) {
             revert SquadAlreadyExist();
         }
@@ -167,22 +136,7 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
         emit SquadCreated(squadId, _attributes);
     }
 
-    /// @notice Upgrade the attributes of an existing squad. Charges a mechanic fee.
-    /// @param _attributes New attributes for the squad.
-    function upgradeSquad(
-        bytes32 squadId,
-        SquadAttributes calldata _attributes
-    ) external payable onlyLider(squadId) {
-        if (msg.value < upgradeSquadFee) {
-            revert UpgradeFeeNotMet();
-        }
-        if (squadInfoBySquadId[squadId].state != SquadState.Formed) {
-            revert SquadNotFormed();
-        }
-
-        _verifyAttributes(_attributes);
-        squadInfoBySquadId[squadId].attributes = _attributes;
-    }
+    function createLocation() external onlyOwner {}
 
     /// @notice Create a mission with the given id.
     /// @param missionId Id of the mission.
@@ -220,6 +174,12 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
         if (msg.value < participationFee) {
             revert ParticipationFeeNotEnough();
         }
+        // if(participantes == minpar y la secino no arranco) {
+        //     startTime = block.timestamp;
+        // }
+        // if (startTime + 1 days < block.timestamp) {
+        //     startGAme
+        // }
 
         rewardsByMission[missionId] += msg.value;
 
@@ -289,39 +249,25 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
         );
     }
 
-    function _verifyAttributes(
-        SquadAttributes calldata _attributes
-    ) internal pure {
-        _checkAttribute(_attributes.attr1);
-        _checkAttribute(_attributes.attr2);
-        _checkAttribute(_attributes.attr3);
-        _checkAttribute(_attributes.attr4);
-        _checkAttribute(_attributes.attr5);
-        _checkAttribute(_attributes.attr6);
-        _checkAttribute(_attributes.attr7);
-        _checkAttribute(_attributes.attr8);
-        _checkAttribute(_attributes.attr9);
-        _checkAttribute(_attributes.attr10);
-
-        uint8 sum_of_attributes = _attributes.attr1 +
-            _attributes.attr2 +
-            _attributes.attr3 +
-            _attributes.attr4 +
-            _attributes.attr5 +
-            _attributes.attr6 +
-            _attributes.attr7 +
-            _attributes.attr8 +
-            _attributes.attr9 +
-            _attributes.attr10;
-
+    function _verifyAttributes(uint8[10] calldata _attributes) internal pure {
+        uint8 sum_of_attributes = 0;
+        uint256 length = _attributes.length;
+        for (uint8 i = 0; i < length; i++) {
+            uint8 attr = _attributes[i];
+            if (attr <= 0 || attr > 10) {
+                revert InvalidAttribute();
+            }
+            sum_of_attributes += _attributes[i];
+        }
         if (sum_of_attributes != 50) {
             revert AttributesSumNot50();
         }
     }
 
-    function _checkAttribute(uint8 _attribute) internal pure {
-        if (_attribute <= 0 || _attribute > 10) {
-            revert InvalidAttribute();
-        }
+    function getSquadInfoBySquadId(
+        bytes32 squadId
+    ) public view returns (uint8[10] memory, SquadState) {
+        Squad memory squad = squadInfoBySquadId[squadId];
+        return (squad.attributes, squad.state);
     }
 }

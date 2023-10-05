@@ -10,7 +10,7 @@ import {Utilities} from "./utils/Utilities.sol";
 import "forge-std/console.sol";
 
 contract SquadGameTest is Test {
-    event SquadCreated(bytes32 squadId, SquadGame.SquadAttributes attributes);
+    event SquadCreated(bytes32 squadId, uint8[10] attributes);
     event MissionCreated(uint8 missionId);
     event JoinedMission(bytes32 squadId, uint8 missionId);
     event StartedMission(uint8 missionId, uint256 requestId);
@@ -20,7 +20,7 @@ contract SquadGameTest is Test {
     struct SquadInfo {
         address lider;
         bytes32 squadId;
-        SquadGame.SquadAttributes attributes;
+        uint8[10] attributes;
     }
 
     LinkToken public linkToken;
@@ -67,10 +67,18 @@ contract SquadGameTest is Test {
         // create squad successfully
         address owner = address(1);
         vm.startPrank(owner);
-        (
-            bytes32 squadId,
-            SquadGame.SquadAttributes memory attributes
-        ) = createSquad(8, 5, 3, 7, 1, 9, 3, 10, 2, 2);
+        (bytes32 squadId, uint8[10] memory attributes) = createSquad(
+            8,
+            5,
+            3,
+            7,
+            1,
+            9,
+            3,
+            10,
+            2,
+            2
+        );
 
         vm.expectEmit(true, true, true, true);
         emit SquadCreated(squadId, attributes);
@@ -78,20 +86,20 @@ contract SquadGameTest is Test {
 
         assertTrue(game.squadIdsByLider(owner, squadId));
         (
-            SquadGame.SquadAttributes memory squadInfoAttributes,
+            uint8[10] memory squadInfoAttributes,
             SquadGame.SquadState squadInfoState
-        ) = game.squadInfoBySquadId(squadId);
+        ) = game.getSquadInfoBySquadId(squadId);
 
-        assertTrue(squadInfoAttributes.attr1 == 8);
-        assertTrue(squadInfoAttributes.attr2 == 5);
-        assertTrue(squadInfoAttributes.attr3 == 3);
-        assertTrue(squadInfoAttributes.attr4 == 7);
-        assertTrue(squadInfoAttributes.attr5 == 1);
-        assertTrue(squadInfoAttributes.attr6 == 9);
-        assertTrue(squadInfoAttributes.attr7 == 3);
-        assertTrue(squadInfoAttributes.attr8 == 10);
-        assertTrue(squadInfoAttributes.attr9 == 2);
-        assertTrue(squadInfoAttributes.attr10 == 2);
+        assertTrue(squadInfoAttributes[0] == 8);
+        assertTrue(squadInfoAttributes[1] == 5);
+        assertTrue(squadInfoAttributes[2] == 3);
+        assertTrue(squadInfoAttributes[3] == 7);
+        assertTrue(squadInfoAttributes[4] == 1);
+        assertTrue(squadInfoAttributes[5] == 9);
+        assertTrue(squadInfoAttributes[6] == 3);
+        assertTrue(squadInfoAttributes[7] == 10);
+        assertTrue(squadInfoAttributes[8] == 2);
+        assertTrue(squadInfoAttributes[9] == 2);
         assertTrue(squadInfoState == SquadGame.SquadState.Formed);
 
         // should revert if squad already exists
@@ -99,7 +107,7 @@ contract SquadGameTest is Test {
         game.createSquad(attributes);
 
         // should revert if attributes are invalid
-        (, SquadGame.SquadAttributes memory invalidAttribute) = createSquad(
+        (, uint8[10] memory invalidAttribute) = createSquad(
             0,
             5,
             3,
@@ -116,7 +124,7 @@ contract SquadGameTest is Test {
         game.createSquad(invalidAttribute);
 
         // should revert if attributes are invalid, the sum of attributes should be 50
-        (, SquadGame.SquadAttributes memory invalidAttributes) = createSquad(
+        (, uint8[10] memory invalidAttributes) = createSquad(
             7,
             5,
             3,
@@ -142,10 +150,18 @@ contract SquadGameTest is Test {
         utils.fundSpecificAddress(alice);
 
         vm.startPrank(alice);
-        (
-            bytes32 squadId,
-            SquadGame.SquadAttributes memory attributes
-        ) = createSquad(8, 5, 3, 7, 1, 9, 3, 10, 2, 2);
+        (bytes32 squadId, uint8[10] memory attributes) = createSquad(
+            8,
+            5,
+            3,
+            7,
+            1,
+            9,
+            3,
+            10,
+            2,
+            2
+        );
         game.createSquad(attributes);
 
         vm.expectEmit(true, true, true, true);
@@ -157,10 +173,18 @@ contract SquadGameTest is Test {
         address bob = address(3);
         utils.fundSpecificAddress(bob);
         vm.startPrank(bob);
-        (
-            bytes32 squadId1,
-            SquadGame.SquadAttributes memory attributes1
-        ) = createSquad(8, 5, 3, 7, 1, 9, 3, 10, 3, 1);
+        (bytes32 squadId1, uint8[10] memory attributes1) = createSquad(
+            8,
+            5,
+            3,
+            7,
+            1,
+            9,
+            3,
+            10,
+            3,
+            1
+        );
         game.createSquad(attributes1);
 
         vm.stopPrank();
@@ -183,50 +207,90 @@ contract SquadGameTest is Test {
 
         SquadInfo[] memory players = new SquadInfo[](5);
 
-        (
-            bytes32 squadId0,
-            SquadGame.SquadAttributes memory attributes0
-        ) = createSquad(8, 5, 3, 7, 1, 9, 3, 10, 2, 2);
+        (bytes32 squadId0, uint8[10] memory attributes0) = createSquad(
+            8,
+            5,
+            3,
+            7,
+            1,
+            9,
+            3,
+            10,
+            2,
+            2
+        );
         players[0] = SquadInfo({
             lider: address(10),
             squadId: squadId0,
             attributes: attributes0
         });
 
-        (
-            bytes32 squadId1,
-            SquadGame.SquadAttributes memory attributes1
-        ) = createSquad(6, 7, 3, 7, 1, 9, 3, 10, 2, 2);
+        (bytes32 squadId1, uint8[10] memory attributes1) = createSquad(
+            6,
+            7,
+            3,
+            7,
+            1,
+            9,
+            3,
+            10,
+            2,
+            2
+        );
         players[1] = SquadInfo({
             lider: address(11),
             squadId: squadId1,
             attributes: attributes1
         });
 
-        (
-            bytes32 squadId2,
-            SquadGame.SquadAttributes memory attributes2
-        ) = createSquad(8, 5, 3, 5, 2, 9, 3, 10, 3, 2);
+        (bytes32 squadId2, uint8[10] memory attributes2) = createSquad(
+            8,
+            5,
+            3,
+            5,
+            2,
+            9,
+            3,
+            10,
+            3,
+            2
+        );
         players[2] = SquadInfo({
             lider: address(12),
             squadId: squadId2,
             attributes: attributes2
         });
 
-        (
-            bytes32 squadId3,
-            SquadGame.SquadAttributes memory attributes3
-        ) = createSquad(8, 5, 3, 7, 3, 9, 3, 5, 2, 5);
+        (bytes32 squadId3, uint8[10] memory attributes3) = createSquad(
+            8,
+            5,
+            3,
+            7,
+            3,
+            9,
+            3,
+            5,
+            2,
+            5
+        );
         players[3] = SquadInfo({
             lider: address(13),
             squadId: squadId3,
             attributes: attributes3
         });
 
-        (
-            bytes32 squadId4,
-            SquadGame.SquadAttributes memory attributes4
-        ) = createSquad(7, 4, 2, 6, 1, 7, 3, 10, 6, 4);
+        (bytes32 squadId4, uint8[10] memory attributes4) = createSquad(
+            7,
+            4,
+            2,
+            6,
+            1,
+            7,
+            3,
+            10,
+            6,
+            4
+        );
         players[4] = SquadInfo({
             lider: address(14),
             squadId: squadId4,
@@ -258,10 +322,18 @@ contract SquadGameTest is Test {
         vm.startPrank(alice);
         utils.fundSpecificAddress(alice);
 
-        (
-            bytes32 squadId,
-            SquadGame.SquadAttributes memory attributes
-        ) = createSquad(8, 5, 3, 7, 1, 9, 3, 10, 2, 2);
+        (bytes32 squadId, uint8[10] memory attributes) = createSquad(
+            8,
+            5,
+            3,
+            7,
+            1,
+            9,
+            3,
+            10,
+            2,
+            2
+        );
         game.createSquad(attributes);
 
         game.joinMission{value: 0.1 ether}(squadId, missionId);
@@ -306,23 +378,21 @@ contract SquadGameTest is Test {
         uint8 attr8,
         uint8 attr9,
         uint8 attr10
-    )
-        private
-        pure
-        returns (bytes32 squadId, SquadGame.SquadAttributes memory attributes)
-    {
-        attributes = SquadGame.SquadAttributes({
-            attr1: attr1,
-            attr2: attr2,
-            attr3: attr3,
-            attr4: attr4,
-            attr5: attr5,
-            attr6: attr6,
-            attr7: attr7,
-            attr8: attr8,
-            attr9: attr9,
-            attr10: attr10
-        });
+    ) private pure returns (bytes32 squadId, uint8[10] memory attributes) {
+        attributes = uint8[10](
+            [
+                attr1,
+                attr2,
+                attr3,
+                attr4,
+                attr5,
+                attr6,
+                attr7,
+                attr8,
+                attr9,
+                attr10
+            ]
+        );
 
         squadId = keccak256(
             abi.encodePacked(
