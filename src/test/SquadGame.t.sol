@@ -179,7 +179,7 @@ contract SquadGameTest is Test {
         address bob = address(3);
         utils.fundSpecificAddress(bob);
         vm.startPrank(bob);
-        (bytes32 squadId1, uint8[10] memory attributes1) = createSquad(
+        (, uint8[10] memory attributes1) = createSquad(
             8,
             5,
             3,

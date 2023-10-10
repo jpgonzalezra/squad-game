@@ -58,7 +58,7 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
 
     // }
 
-    // Scenary[] public scenarios;
+    // Scenary[] public scenarios;[0,0,1,-3,2,1,5]
 
     // squad storage
     struct Squad {
