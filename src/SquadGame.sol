@@ -52,6 +52,7 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
     error AlreadyMission();
     error ParticipationFeeNotEnough();
     error InvalidMissionId();
+    error InvalidCountdownDelay();
 
     // external factors stagorage
     // struct Scenary {
@@ -85,7 +86,10 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
         uint256 fee;
         uint8 id;
         uint8 minParticipantsPerMission;
+        uint8 registered;
+        uint16 countdownDelay; // 7 days as max countdown
         MissionState state;
+        uint256 countdown;
     }
 
     // mapping storage
@@ -142,7 +146,8 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
     function createMission(
         uint8 missionId,
         uint8 minParticipants,
-        uint256 fee
+        uint256 fee,
+        uint8 countdownDelay
     ) external onlyOwner {
         if (missionId == 0) {
             revert InvalidMissionId();
@@ -150,11 +155,17 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
         if (missionInfoByMissionId[missionId].state != MissionState.NotReady) {
             revert AlreadyMission();
         }
+        if (countdownDelay > 604800) {
+            revert InvalidCountdownDelay();
+        }
         missionInfoByMissionId[missionId] = Mission({
             id: missionId,
             minParticipantsPerMission: minParticipants,
             state: MissionState.Ready,
-            fee: fee
+            fee: fee,
+            registered: 0,
+            countdown: 0,
+            countdownDelay: countdownDelay
         });
         emit MissionCreated(missionId);
     }
@@ -176,14 +187,18 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
         if (msg.value < mission.fee) {
             revert ParticipationFeeNotEnough();
         }
-        // if(participantes == minpar y la secino no arranco) {
-        //     startTime = block.timestamp;
-        // }
-        // if (startTime + 1 days < block.timestamp) {
-        //     startGAme
-        // }
+        if (
+            mission.minParticipantsPerMission > mission.registered &&
+            mission.countdown == 0
+        ) {
+            missionInfoByMissionId[missionId].countdown = block.timestamp;
+        }
+        if (block.timestamp >= mission.countdown + mission.countdownDelay) {
+            this.startMission(missionId);
+        }
 
         rewardsByMission[missionId] += msg.value;
+        missionInfoByMissionId[missionId].registered += 1;
 
         squadIdsByMission[missionId].push(squadId);
         squadInfoBySquadId[squadId].state = SquadState.Ready;
@@ -192,7 +207,7 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
     }
 
     /// @notice Execute the run when it is full.
-    function startMission(uint8 missionId) external onlyOwner {
+    function startMission(uint8 missionId) public onlyOwner {
         if (
             squadIdsByMission[missionId].length <
             missionInfoByMissionId[missionId].minParticipantsPerMission

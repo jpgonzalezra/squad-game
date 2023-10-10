@@ -49,23 +49,31 @@ contract SquadGameTest is Test {
     function testCreateMission() public {
         vm.expectEmit(true, true, true, true);
         emit MissionCreated(1);
-        game.createMission(1, 8, 0.1 ether);
+        game.createMission(1, 8, 0.1 ether, 60);
         (
             uint256 fee,
             uint8 id,
             uint8 minParticipantsPerMission,
-            SquadGame.MissionState state
+            uint8 registered,
+            uint16 countdownDelay, // 7 days as max countdown
+            SquadGame.MissionState state,
+            uint256 countdown
         ) = game.missionInfoByMissionId(1);
+        assertTrue(id == 1);
+        assertTrue(registered == 0);
         assertTrue(state == SquadGame.MissionState.Ready);
         assertTrue(minParticipantsPerMission == 8);
+        assertTrue(countdownDelay == 60);
+        assertTrue(countdown == 0);
+        assertTrue(registered == 0);
         assertTrue(fee == 0.1 ether);
     }
 
     function testAlreadyMission() public {
         uint8 missionId = 1;
-        game.createMission(missionId, 1, 0.1 ether);
+        game.createMission(missionId, 1, 0.1 ether, 60);
         vm.expectRevert(SquadGame.AlreadyMission.selector);
-        game.createMission(missionId, 1, 0.1 ether);
+        game.createMission(missionId, 1, 0.1 ether, 60);
     }
 
     function testCreateSquad() public {
@@ -150,7 +158,7 @@ contract SquadGameTest is Test {
 
     function testJoinMission() public {
         uint8 missionId = 1;
-        game.createMission(missionId, 5, 0.1 ether);
+        game.createMission(missionId, 5, 0.1 ether, 60);
 
         address alice = address(2);
         utils.fundSpecificAddress(alice);
@@ -209,7 +217,7 @@ contract SquadGameTest is Test {
 
     function testStartMission() public {
         uint8 missionId = 1;
-        game.createMission(missionId, 5, 0.1 ether);
+        game.createMission(missionId, 5, 0.1 ether, 60);
 
         SquadInfo[] memory players = new SquadInfo[](5);
 
@@ -322,7 +330,7 @@ contract SquadGameTest is Test {
 
     function testFinishMission() public {
         uint8 missionId = 1;
-        game.createMission(missionId, 1, 0.1 ether);
+        game.createMission(missionId, 1, 0.1 ether, 60);
 
         address alice = address(2);
         vm.startPrank(alice);
