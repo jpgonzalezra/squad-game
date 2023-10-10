@@ -49,18 +49,23 @@ contract SquadGameTest is Test {
     function testCreateMission() public {
         vm.expectEmit(true, true, true, true);
         emit MissionCreated(1);
-        game.createMission(1, 8);
-        (, uint8 minParticipants, SquadGame.MissionState state) = game
-            .missionInfoByMissionId(1);
+        game.createMission(1, 8, 0.1 ether);
+        (
+            uint256 fee,
+            uint8 id,
+            uint8 minParticipantsPerMission,
+            SquadGame.MissionState state
+        ) = game.missionInfoByMissionId(1);
         assertTrue(state == SquadGame.MissionState.Ready);
-        assertTrue(minParticipants == 8);
+        assertTrue(minParticipantsPerMission == 8);
+        assertTrue(fee == 0.1 ether);
     }
 
     function testAlreadyMission() public {
         uint8 missionId = 1;
-        game.createMission(missionId, 1);
+        game.createMission(missionId, 1, 0.1 ether);
         vm.expectRevert(SquadGame.AlreadyMission.selector);
-        game.createMission(missionId, 1);
+        game.createMission(missionId, 1, 0.1 ether);
     }
 
     function testCreateSquad() public {
@@ -85,6 +90,7 @@ contract SquadGameTest is Test {
         game.createSquad(attributes);
 
         assertTrue(game.squadIdsByLider(owner, squadId));
+
         (
             uint8[10] memory squadInfoAttributes,
             SquadGame.SquadState squadInfoState
@@ -144,7 +150,7 @@ contract SquadGameTest is Test {
 
     function testJoinMission() public {
         uint8 missionId = 1;
-        game.createMission(missionId, 5);
+        game.createMission(missionId, 5, 0.1 ether);
 
         address alice = address(2);
         utils.fundSpecificAddress(alice);
@@ -203,7 +209,7 @@ contract SquadGameTest is Test {
 
     function testStartMission() public {
         uint8 missionId = 1;
-        game.createMission(missionId, 5);
+        game.createMission(missionId, 5, 0.1 ether);
 
         SquadInfo[] memory players = new SquadInfo[](5);
 
@@ -316,7 +322,7 @@ contract SquadGameTest is Test {
 
     function testFinishMission() public {
         uint8 missionId = 1;
-        game.createMission(missionId, 1);
+        game.createMission(missionId, 1, 0.1 ether);
 
         address alice = address(2);
         vm.startPrank(alice);
@@ -396,16 +402,18 @@ contract SquadGameTest is Test {
 
         squadId = keccak256(
             abi.encodePacked(
-                attr1,
-                attr2,
-                attr3,
-                attr4,
-                attr5,
-                attr6,
-                attr7,
-                attr8,
-                attr9,
-                attr10
+                [
+                    attr1,
+                    attr2,
+                    attr3,
+                    attr4,
+                    attr5,
+                    attr6,
+                    attr7,
+                    attr8,
+                    attr9,
+                    attr10
+                ]
             )
         );
     }

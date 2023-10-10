@@ -39,8 +39,6 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
     }
 
     // miscellaneous constants
-    uint256 public participationFee = 0.1 ether;
-
     error InvalidAttribute();
     error AttributesSumNot50();
     error SquadIsNotFormed();
@@ -84,6 +82,7 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
     }
 
     struct Mission {
+        uint256 fee;
         uint8 id;
         uint8 minParticipantsPerMission;
         MissionState state;
@@ -142,7 +141,8 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
     /// @param missionId Id of the mission.
     function createMission(
         uint8 missionId,
-        uint8 minParticipants
+        uint8 minParticipants,
+        uint256 fee
     ) external onlyOwner {
         if (missionId == 0) {
             revert InvalidMissionId();
@@ -153,7 +153,8 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
         missionInfoByMissionId[missionId] = Mission({
             id: missionId,
             minParticipantsPerMission: minParticipants,
-            state: MissionState.Ready
+            state: MissionState.Ready,
+            fee: fee
         });
         emit MissionCreated(missionId);
     }
@@ -165,13 +166,14 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
         bytes32 squadId,
         uint8 missionId
     ) external payable onlyLider(squadId) {
-        if (missionInfoByMissionId[missionId].state != MissionState.Ready) {
+        Mission memory mission = missionInfoByMissionId[missionId];
+        if (mission.state != MissionState.Ready) {
             revert MissionNotReady();
         }
         if (squadInfoBySquadId[squadId].state != SquadState.Formed) {
             revert SquadNotFormed();
         }
-        if (msg.value < participationFee) {
+        if (msg.value < mission.fee) {
             revert ParticipationFeeNotEnough();
         }
         // if(participantes == minpar y la secino no arranco) {
