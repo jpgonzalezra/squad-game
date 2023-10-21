@@ -51,21 +51,22 @@ contract SquadGameTest is Test {
         emit MissionCreated(1);
         game.createMission(1, 8, 0.1 ether, 60);
         (
+            uint256 countdown,
+            uint256 rewards,
             uint256 fee,
+            uint16 countdownDelay,
             uint8 id,
             uint8 minParticipantsPerMission,
             uint8 registered,
-            uint16 countdownDelay, // 7 days as max countdown
-            SquadGame.MissionState state,
-            uint256 countdown
+            SquadGame.MissionState state
         ) = game.missionInfoByMissionId(1);
         assertTrue(id == 1);
-        assertTrue(registered == 0);
         assertTrue(state == SquadGame.MissionState.Ready);
         assertTrue(minParticipantsPerMission == 8);
         assertTrue(countdownDelay == 60);
         assertTrue(countdown == 0);
         assertTrue(registered == 0);
+        assertTrue(rewards == 0);
         assertTrue(fee == 0.1 ether);
     }
 
@@ -99,22 +100,16 @@ contract SquadGameTest is Test {
 
         assertTrue(game.squadIdsByLider(owner, squadId));
 
-        (
-            uint8[10] memory squadInfoAttributes,
-            SquadGame.SquadState squadInfoState
-        ) = game.getSquadInfoBySquadId(squadId);
-
-        assertTrue(squadInfoAttributes[0] == 8);
-        assertTrue(squadInfoAttributes[1] == 5);
-        assertTrue(squadInfoAttributes[2] == 3);
-        assertTrue(squadInfoAttributes[3] == 7);
-        assertTrue(squadInfoAttributes[4] == 1);
-        assertTrue(squadInfoAttributes[5] == 9);
-        assertTrue(squadInfoAttributes[6] == 3);
-        assertTrue(squadInfoAttributes[7] == 10);
-        assertTrue(squadInfoAttributes[8] == 2);
-        assertTrue(squadInfoAttributes[9] == 2);
-        assertTrue(squadInfoState == SquadGame.SquadState.Formed);
+        assertTrue(game.squads(squadId, 0) == 8);
+        assertTrue(game.squads(squadId, 1) == 5);
+        assertTrue(game.squads(squadId, 2) == 3);
+        assertTrue(game.squads(squadId, 3) == 7);
+        assertTrue(game.squads(squadId, 4) == 1);
+        assertTrue(game.squads(squadId, 5) == 9);
+        assertTrue(game.squads(squadId, 6) == 3);
+        assertTrue(game.squads(squadId, 7) == 10);
+        assertTrue(game.squads(squadId, 8) == 2);
+        assertTrue(game.squads(squadId, 9) == 2);
 
         // should revert if squad already exists
         vm.expectRevert(SquadGame.SquadAlreadyExist.selector);
@@ -220,7 +215,6 @@ contract SquadGameTest is Test {
         game.createMission(missionId, 5, 0.1 ether, 60);
 
         SquadInfo[] memory players = new SquadInfo[](5);
-
         (bytes32 squadId0, uint8[10] memory attributes0) = createSquad(
             8,
             5,
@@ -251,6 +245,7 @@ contract SquadGameTest is Test {
             2,
             2
         );
+
         players[1] = SquadInfo({
             lider: address(11),
             squadId: squadId1,
@@ -314,6 +309,39 @@ contract SquadGameTest is Test {
         joinMission(players, missionId);
 
         game.startMission(missionId);
+
+        // should start after countdown is over and mission is ready
+        uint8 anotherMissionId = 2;
+        game.createMission(anotherMissionId, 2, 0.2 ether, 3600);
+
+        vm.startPrank(players[1].lider);
+        game.joinMission{value: 0.2 ether}(
+            players[1].squadId,
+            anotherMissionId
+        );
+        SquadGame.SquadState squadInfoState1 = game.squadStateByMissionId(
+            anotherMissionId,
+            squadId1
+        );
+        vm.stopPrank();
+
+        vm.startPrank(players[2].lider);
+        game.joinMission{value: 0.2 ether}(
+            players[2].squadId,
+            anotherMissionId
+        );
+        assertTrue(squadInfoState1 == SquadGame.SquadState.Ready);
+        SquadGame.SquadState squadInfoState2 = game.squadStateByMissionId(
+            anotherMissionId,
+            squadId2
+        );
+        assertTrue(squadInfoState2 == SquadGame.SquadState.Ready);
+        vm.stopPrank();
+
+        //modificar el tiempo
+        //ingresar un nuevo jugador
+
+        //ver que este en mission state
 
         // should revert if squad is not the leader
         // should revert if the mission is not ready

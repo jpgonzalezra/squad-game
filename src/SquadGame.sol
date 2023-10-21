@@ -43,16 +43,16 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
     error AttributesSumNot50();
     error SquadIsNotFormed();
     error SquadAlreadyExist();
-    error SquadNotFormed();
     error SquadNotReady();
+    error FailJoinMision();
     error MissionNotReady();
+    error AlreadyMission();
+    error InvalidMissionId();
+    error InvalidCountdownDelay();
     error NotEnoughParticipants();
     error UpgradeFeeNotMet();
     error NotALider();
-    error AlreadyMission();
     error ParticipationFeeNotEnough();
-    error InvalidMissionId();
-    error InvalidCountdownDelay();
 
     // external factors stagorage
     // struct Scenary {
@@ -61,15 +61,8 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
 
     // Scenary[] public scenarios;[0,0,1,-3,2,1,5]
 
-    // squad storage
-    struct Squad {
-        uint8[10] attributes;
-        SquadState state;
-    }
-
     enum SquadState {
         Unformed, // The squad has not yet been formed
-        Formed, // The squad has been formed but is not ready for the mission
         Ready, // The squad is ready for the mission but it has not yet started
         InMission // The squad is currently in a mission
     }
@@ -83,19 +76,21 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
     }
 
     struct Mission {
+        uint256 countdown;
+        uint256 rewards;
         uint256 fee;
+        uint16 countdownDelay; // 7 days as max countdown
         uint8 id;
         uint8 minParticipantsPerMission;
         uint8 registered;
-        uint16 countdownDelay; // 7 days as max countdown
         MissionState state;
-        uint256 countdown;
     }
 
     // mapping storage
     mapping(address => mapping(bytes32 => bool)) public squadIdsByLider;
-    mapping(bytes32 => Squad) public squadInfoBySquadId;
-    mapping(uint8 => uint256) public rewardsByMission;
+    mapping(uint8 => mapping(bytes32 => SquadState))
+        public squadStateByMissionId;
+    mapping(bytes32 => uint8[10]) public squads;
     mapping(uint8 => bytes32[]) public squadIdsByMission;
     mapping(uint8 => Mission) public missionInfoByMissionId;
     mapping(uint256 => ChainLinkRequest) public requests;
@@ -125,16 +120,15 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
     /// @param _attributes Attributes of the squad team.
     function createSquad(uint8[10] calldata _attributes) external {
         bytes32 squadId = keccak256(abi.encodePacked(_attributes));
-        if (squadInfoBySquadId[squadId].state != SquadState.Unformed) {
-            revert SquadAlreadyExist();
+        for (uint256 i = 0; i < 10; i++) {
+            if (squads[squadId][i] != 0) {
+                revert SquadAlreadyExist();
+            }
         }
         _verifyAttributes(_attributes);
 
         squadIdsByLider[msg.sender][squadId] = true;
-        squadInfoBySquadId[squadId] = Squad({
-            attributes: _attributes,
-            state: SquadState.Formed
-        });
+        squads[squadId] = _attributes;
 
         emit SquadCreated(squadId, _attributes);
     }
@@ -147,7 +141,7 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
         uint8 missionId,
         uint8 minParticipants,
         uint256 fee,
-        uint8 countdownDelay
+        uint16 countdownDelay
     ) external onlyOwner {
         if (missionId == 0) {
             revert InvalidMissionId();
@@ -165,6 +159,7 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
             fee: fee,
             registered: 0,
             countdown: 0,
+            rewards: 0,
             countdownDelay: countdownDelay
         });
         emit MissionCreated(missionId);
@@ -181,8 +176,8 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
         if (mission.state != MissionState.Ready) {
             revert MissionNotReady();
         }
-        if (squadInfoBySquadId[squadId].state != SquadState.Formed) {
-            revert SquadNotFormed();
+        if (squadStateByMissionId[missionId][squadId] != SquadState.Unformed) {
+            revert FailJoinMision();
         }
         if (msg.value < mission.fee) {
             revert ParticipationFeeNotEnough();
@@ -197,11 +192,11 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
             this.startMission(missionId);
         }
 
-        rewardsByMission[missionId] += msg.value;
+        missionInfoByMissionId[missionId].rewards += msg.value;
         missionInfoByMissionId[missionId].registered += 1;
 
         squadIdsByMission[missionId].push(squadId);
-        squadInfoBySquadId[squadId].state = SquadState.Ready;
+        squadStateByMissionId[missionId][squadId] = SquadState.Ready;
 
         emit JoinedMission(squadId, missionId);
     }
@@ -218,10 +213,14 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
         bytes32[] memory squadIds = squadIdsByMission[missionId];
         uint256 squadIdsLenth = squadIds.length;
         for (uint256 i = 0; i < squadIdsLenth; i++) {
-            if (squadInfoBySquadId[squadIds[i]].state != SquadState.Ready) {
+            if (
+                squadStateByMissionId[missionId][squadIds[i]] !=
+                SquadState.Ready
+            ) {
                 revert SquadNotReady();
             }
-            squadInfoBySquadId[squadIds[i]].state = SquadState.InMission;
+            squadStateByMissionId[missionId][squadIds[i]] = SquadState
+                .InMission;
         }
 
         uint256 requestId = requestRandomness();
@@ -279,12 +278,5 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
         if (sum_of_attributes != 50) {
             revert AttributesSumNot50();
         }
-    }
-
-    function getSquadInfoBySquadId(
-        bytes32 squadId
-    ) public view returns (uint8[10] memory, SquadState) {
-        Squad memory squad = squadInfoBySquadId[squadId];
-        return (squad.attributes, squad.state);
     }
 }
