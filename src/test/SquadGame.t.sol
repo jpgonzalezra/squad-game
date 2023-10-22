@@ -17,12 +17,6 @@ contract SquadGameTest is Test {
     event FinishedMission(uint8 missionId);
     event RequestedLeaderboard(bytes32 indexed requestId, uint256 value);
 
-    struct SquadInfo {
-        address lider;
-        bytes32 squadId;
-        uint8[10] attributes;
-    }
-
     LinkToken public linkToken;
     MockVRFCoordinatorV2 public vrfCoordinator;
     SquadGame public game;
@@ -81,7 +75,7 @@ contract SquadGameTest is Test {
         // create squad successfully
         address owner = address(1);
         vm.startPrank(owner);
-        (bytes32 squadId, uint8[10] memory attributes) = createSquad(
+        (bytes32 squadId, uint8[10] memory attributes) = utils.createSquad(
             8,
             5,
             3,
@@ -116,7 +110,7 @@ contract SquadGameTest is Test {
         game.createSquad(attributes);
 
         // should revert if attributes are invalid
-        (, uint8[10] memory invalidAttribute) = createSquad(
+        (, uint8[10] memory invalidAttribute) = utils.createSquad(
             0,
             5,
             3,
@@ -133,7 +127,7 @@ contract SquadGameTest is Test {
         game.createSquad(invalidAttribute);
 
         // should revert if attributes are invalid, the sum of attributes should be 50
-        (, uint8[10] memory invalidAttributes) = createSquad(
+        (, uint8[10] memory invalidAttributes) = utils.createSquad(
             7,
             5,
             3,
@@ -159,7 +153,7 @@ contract SquadGameTest is Test {
         utils.fundSpecificAddress(alice);
 
         vm.startPrank(alice);
-        (bytes32 squadId, uint8[10] memory attributes) = createSquad(
+        (bytes32 squadId, uint8[10] memory attributes) = utils.createSquad(
             8,
             5,
             3,
@@ -182,7 +176,7 @@ contract SquadGameTest is Test {
         address bob = address(3);
         utils.fundSpecificAddress(bob);
         vm.startPrank(bob);
-        (, uint8[10] memory attributes1) = createSquad(
+        (, uint8[10] memory attributes1) = utils.createSquad(
             8,
             5,
             3,
@@ -214,24 +208,24 @@ contract SquadGameTest is Test {
         uint8 missionId = 1;
         game.createMission(missionId, 5, 0.1 ether, 60);
 
-        SquadInfo[] memory players = new SquadInfo[](5);
-        players[0] = createAndSetupSquadInfo(
+        Utilities.SquadInfo[] memory players = new Utilities.SquadInfo[](5);
+        players[0] = utils.createAndSetupSquadInfo(
             [8, 5, 3, 7, 1, 9, 3, 10, 2, 2],
             address(10)
         );
-        players[1] = createAndSetupSquadInfo(
+        players[1] = utils.createAndSetupSquadInfo(
             [6, 7, 3, 7, 1, 9, 3, 10, 2, 2],
             address(11)
         );
-        players[2] = createAndSetupSquadInfo(
+        players[2] = utils.createAndSetupSquadInfo(
             [8, 5, 3, 5, 2, 9, 3, 10, 3, 2],
             address(12)
         );
-        players[3] = createAndSetupSquadInfo(
+        players[3] = utils.createAndSetupSquadInfo(
             [8, 5, 3, 7, 3, 9, 3, 5, 2, 5],
             address(13)
         );
-        players[4] = createAndSetupSquadInfo(
+        players[4] = utils.createAndSetupSquadInfo(
             [7, 4, 2, 6, 1, 7, 3, 10, 6, 4],
             address(14)
         );
@@ -295,13 +289,6 @@ contract SquadGameTest is Test {
         // should revert if payment is not enough
     }
 
-    // function testCanRequestRandomness() public {
-    //     // start mission
-    //     uint256 startingRequestId = vrfConsumer.s_requestId();
-    //     vrfConsumer.requestRandomWords();
-    //     assertTrue(vrfConsumer.s_requestId() != startingRequestId);
-    // }
-
     function testFinishMission() public {
         uint8 missionId = 1;
         game.createMission(missionId, 1, 0.1 ether, 60);
@@ -310,7 +297,7 @@ contract SquadGameTest is Test {
         vm.startPrank(alice);
         utils.fundSpecificAddress(alice);
 
-        (bytes32 squadId, uint8[10] memory attributes) = createSquad(
+        (bytes32 squadId, uint8[10] memory attributes) = utils.createSquad(
             8,
             5,
             3,
@@ -344,7 +331,10 @@ contract SquadGameTest is Test {
         assertTrue(missionIdRequested == 1);
     }
 
-    function joinMission(SquadInfo[] memory players, uint8 missionId) private {
+    function joinMission(
+        Utilities.SquadInfo[] memory players,
+        uint8 missionId
+    ) private {
         for (uint8 i = 0; i < players.length; i++) {
             vm.startPrank(players[i].lider);
             utils.fundSpecificAddress(players[i].lider);
@@ -353,75 +343,5 @@ contract SquadGameTest is Test {
             game.joinMission{value: 0.1 ether}(players[i].squadId, missionId);
             vm.stopPrank();
         }
-    }
-
-    function createSquad(
-        uint8 attr1,
-        uint8 attr2,
-        uint8 attr3,
-        uint8 attr4,
-        uint8 attr5,
-        uint8 attr6,
-        uint8 attr7,
-        uint8 attr8,
-        uint8 attr9,
-        uint8 attr10
-    ) private pure returns (bytes32 squadId, uint8[10] memory attributes) {
-        attributes = uint8[10](
-            [
-                attr1,
-                attr2,
-                attr3,
-                attr4,
-                attr5,
-                attr6,
-                attr7,
-                attr8,
-                attr9,
-                attr10
-            ]
-        );
-
-        squadId = keccak256(
-            abi.encodePacked(
-                [
-                    attr1,
-                    attr2,
-                    attr3,
-                    attr4,
-                    attr5,
-                    attr6,
-                    attr7,
-                    attr8,
-                    attr9,
-                    attr10
-                ]
-            )
-        );
-    }
-
-    function createAndSetupSquadInfo(
-        uint8[10] memory attributes,
-        address leader
-    ) internal pure returns (SquadInfo memory) {
-        (bytes32 squadId, uint8[10] memory squadAttributes) = createSquad(
-            attributes[0],
-            attributes[1],
-            attributes[2],
-            attributes[3],
-            attributes[4],
-            attributes[5],
-            attributes[6],
-            attributes[7],
-            attributes[8],
-            attributes[9]
-        );
-
-        return
-            SquadInfo({
-                lider: leader,
-                squadId: squadId,
-                attributes: squadAttributes
-            });
     }
 }
