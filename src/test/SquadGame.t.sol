@@ -36,7 +36,25 @@ contract SquadGameTest is Test {
         vrfCoordinator = new MockVRFCoordinatorV2();
         subId = vrfCoordinator.createSubscription();
         vrfCoordinator.fundSubscription(subId, FUND_AMOUNT);
-        game = new SquadGame(keyHash, address(vrfCoordinator), subId, utils.createScenaries());
+        game = new SquadGame(
+            keyHash,
+            address(vrfCoordinator),
+            subId,
+            [
+                [1, 0, 0, 2, 0, 0, 0, 2, 0, 0],
+                [2, 0, 1, 2, 0, 0, 1, 2, 0, 0],
+                [0, 1, 0, 1, 0, 0, 0, 1, 0, 0],
+                [1, 0, 0, 1, 0, 0, 0, 1, 0, 0],
+                [0, 0, 0, 2, 0, 0, 0, 0, 0, 0]
+            ],
+            [
+                [0, 2, 0, 0, 1, 0, 0, 0, 1, 2],
+                [0, 1, 0, 0, 0, 0, 0, 0, 2, 2],
+                [0, 0, 0, 0, 2, 0, 0, 0, 0, 0],
+                [0, 2, 0, 0, 1, 0, 0, 0, 1, 1],
+                [0, 0, 0, 0, 1, 0, 0, 0, 1, 0]
+            ]
+        );
         vrfCoordinator.addConsumer(subId, address(game));
     }
 
@@ -330,7 +348,6 @@ contract SquadGameTest is Test {
         assertTrue(randomness == words[0]);
         assertTrue(missionIdRequested == 1);
     }
-
 
     function joinMission(
         Utilities.SquadInfo[] memory players,

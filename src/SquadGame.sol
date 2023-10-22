@@ -41,6 +41,8 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
 
     // miscellaneous constants
     error InvalidAttribute();
+    error InvalidScenary();
+    error InvalidScenaries();
     error AttributesSumNot50();
     error SquadIsNotFormed();
     error SquadAlreadyExist();
@@ -57,12 +59,8 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
     error NotOwnerOrGame();
     error InvalidMinParticipants();
 
-    struct Scenary {
-        uint8[10] increases;
-        uint8[10] decreases;
-    }
-
-    Scenary[] internal scenaries;
+    uint8[10][5] public sceneryIncrementModifiers;
+    uint8[10][5] public sceneryDecrementModifiers;
 
     enum SquadState {
         Unformed, // The squad has not yet been formed
@@ -115,14 +113,20 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
         bytes32 _vrfKeyHash,
         address _vrfCoordinator,
         uint64 _vrfSubscriptionId,
-        Scenary[] memory _scenaries
+        uint8[10][5] memory _sceneryIncrementModifiers,
+        uint8[10][5] memory _sceneryDecrementModifiers
     ) Owned(msg.sender) VRFConsumerBaseV2(_vrfCoordinator) {
         // chainlink configuration
         vrfKeyHash = _vrfKeyHash;
         vrfSubscriptionId = _vrfSubscriptionId;
         COORDINATOR = VRFCoordinatorV2Interface(_vrfCoordinator);
 
-        scenaries = _scenaries;
+        _verifyScenaries(
+            _sceneryIncrementModifiers,
+            _sceneryDecrementModifiers
+        );
+        sceneryIncrementModifiers = _sceneryIncrementModifiers;
+        sceneryDecrementModifiers = _sceneryDecrementModifiers;
     }
 
     /// @notice Create a squad team with the given attributes.
@@ -161,9 +165,9 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
         if (countdownDelay > 604800) {
             revert InvalidCountdownDelay();
         }
-        if (minParticipants < 4) {
-            revert InvalidMinParticipants();
-        }
+        // if (minParticipants < 4) {
+        //     revert InvalidMinParticipants();
+        // }
 
         missionInfoByMissionId[missionId] = Mission({
             id: missionId,
@@ -254,8 +258,13 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
         bytes32[] memory squadIds = squadIdsByMission[missionId];
 
         uint256[] memory randomness = requests[requestId].randomness;
-        Scenary memory scenaryModifiers = scenaries[
-            requests[requestId].scenary
+
+        uint256 scenaryId = requests[requestId].scenary;
+        uint8[10] memory incrementModifier = sceneryIncrementModifiers[
+            scenaryId
+        ];
+        uint8[10] memory decrementModifier = sceneryDecrementModifiers[
+            scenaryId
         ];
 
         uint256 squadsCount = squadIds.length;
@@ -264,7 +273,10 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
             uint8[10] memory squadAttr = squads[squadId];
             for (uint j = 0; j < NUMWORDS; j++) {
                 console.log("before", squadAttr[j]);
-                // squadAttr[j] += scenarioModifiers[j];
+
+                squadAttr[j] -= incrementModifier[j];
+                squadAttr[j] += decrementModifier[j];
+
                 console.log("after", squadAttr[j]);
             }
         }
@@ -279,8 +291,11 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
         uint256 requestId,
         uint256[] memory randomWords
     ) internal override {
-        requests[requestId].scenary = uint8(randomWords[11] % scenaries.length);
+        requests[requestId].scenary = uint8(
+            randomWords[11] % sceneryIncrementModifiers.length
+        );
         for (uint256 i = 0; i < NUMWORDS; i++) {
+            console.log("randomNumber", randomWords[i] % 11);
             requests[requestId].randomness[i] = randomWords[i] % 11;
         }
         if (requests[requestId].missionId == 0) {
@@ -314,6 +329,34 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
         }
         if (sum_of_attributes != 50) {
             revert AttributesSumNot50();
+        }
+    }
+
+    function _verifyScenaries(
+        uint8[10][5] memory _sceneryIncrementModifiers,
+        uint8[10][5] memory _sceneryDecrementModifiers
+    ) internal pure {
+        if (
+            _sceneryIncrementModifiers.length !=
+            _sceneryDecrementModifiers.length
+        ) {
+            revert InvalidScenaries();
+        }
+        for (uint256 i = 0; i < _sceneryIncrementModifiers.length; i++) {
+            for (uint256 j = 0; j < 10; j++) {
+                if (
+                    _sceneryIncrementModifiers[i][j] > 0 &&
+                    _sceneryDecrementModifiers[i][j] > 0
+                ) {
+                    revert InvalidScenary();
+                }
+                if (
+                    _sceneryIncrementModifiers[i][j] > 2 ||
+                    _sceneryDecrementModifiers[i][j] > 2
+                ) {
+                    revert InvalidScenary();
+                }
+            }
         }
     }
 }
