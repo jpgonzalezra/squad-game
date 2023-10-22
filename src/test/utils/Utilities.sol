@@ -114,4 +114,72 @@ contract Utilities is DSTest {
                 attributes: squadAttributes
             });
     }
+
+    function createScenarios()
+        public
+        pure
+        returns (int8[10][] memory scenarios)
+    {
+        scenarios = new int8[10][](5);
+        scenarios[0] = [
+            int8(2),
+            int8(1),
+            int8(-1),
+            int8(2),
+            int8(0),
+            int8(-2),
+            int8(1),
+            int8(-1),
+            int8(0),
+            int8(2)
+        ];
+        scenarios[1] = [
+            int8(1),
+            int8(-2),
+            int8(0),
+            int8(2),
+            int8(-1),
+            int8(1),
+            int8(2),
+            int8(-2),
+            int8(0),
+            int8(1)
+        ];
+        scenarios[2] = [
+            int8(-1),
+            int8(2),
+            int8(1),
+            int8(-2),
+            int8(0),
+            int8(1),
+            int8(1),
+            int8(2),
+            int8(-1),
+            int8(-2)
+        ];
+        scenarios[3] = [
+            int8(0),
+            int8(2),
+            int8(-1),
+            int8(-2),
+            int8(1),
+            int8(0),
+            int8(2),
+            int8(1),
+            int8(-1),
+            int8(1)
+        ];
+        scenarios[4] = [
+            int8(2),
+            int8(-1),
+            int8(1),
+            int8(0),
+            int8(-2),
+            int8(2),
+            int8(0),
+            int8(1),
+            int8(-1),
+            int8(2)
+        ];
+    }
 }

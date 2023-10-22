@@ -55,12 +55,7 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
     error ParticipationFeeNotEnough();
     error NotOwnerOrGame();
 
-    // external factors stagorage
-    // struct Scenary {
-
-    // }
-
-    // Scenary[] public scenarios;[0,0,1,-3,2,1,5]
+    int8[10][] public scenarios;
 
     enum SquadState {
         Unformed, // The squad has not yet been formed
@@ -112,15 +107,15 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
     constructor(
         bytes32 _vrfKeyHash,
         address _vrfCoordinator,
-        uint64 _vrfSubscriptionId
+        uint64 _vrfSubscriptionId,
+        int8[10][] memory _scenarios
     ) Owned(msg.sender) VRFConsumerBaseV2(_vrfCoordinator) {
         // chainlink configuration
         vrfKeyHash = _vrfKeyHash;
         vrfSubscriptionId = _vrfSubscriptionId;
         COORDINATOR = VRFCoordinatorV2Interface(_vrfCoordinator);
 
-        // external factors configuration
-        // TODO:
+        scenarios = _scenarios;
     }
 
     /// @notice Create a squad team with the given attributes.
@@ -195,7 +190,7 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
         ) {
             missionInfoByMissionId[missionId].countdown = block.timestamp;
         }
-        
+
         squadStateByMissionId[missionId][squadId] = SquadState.Ready;
         if (block.timestamp >= mission.countdown + mission.countdownDelay) {
             squadStateByMissionId[missionId][squadId] = SquadState.InMission;

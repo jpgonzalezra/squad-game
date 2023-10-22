@@ -33,7 +33,32 @@ contract DeploySquadGame is Script, HelperConfig {
 
         vm.startBroadcast();
 
-        new SquadGame(keyHash, vrfCoordinator, subscriptionId);
+        int8[10][] memory scenarios = new int8[10][](2);
+        scenarios[0] = [
+            int8(2),
+            int8(1),
+            int8(-1),
+            int8(2),
+            int8(0),
+            int8(-2),
+            int8(1),
+            int8(-1),
+            int8(0),
+            int8(2)
+        ];
+        scenarios[1] = [
+            int8(1),
+            int8(-2),
+            int8(0),
+            int8(2),
+            int8(-1),
+            int8(1),
+            int8(2),
+            int8(-2),
+            int8(0),
+            int8(1)
+        ];
+        new SquadGame(keyHash, vrfCoordinator, subscriptionId, scenarios);
 
         vm.stopBroadcast();
     }
