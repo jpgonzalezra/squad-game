@@ -22,6 +22,7 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
     event StartedMission(uint8 missionId, uint256 requestId);
     event FinishedMission(uint8 missionId);
     event RequestedLeaderboard(bytes32 indexed requestId, uint256 value);
+    event RandomnessReceived(uint256 indexed requestId, uint8[] randomness);
 
     // chainlink constants and storage
     uint32 private constant CALLBACK_GASLIMIT = 200_000; // The gas limit for the random number callback
@@ -34,9 +35,9 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
     uint64 private immutable vrfSubscriptionId; // The subscription ID for the VRF request
 
     struct ChainLinkRequest {
-        uint256[] randomness;
         uint8 scenary;
         uint8 missionId;
+        uint8[] randomness;
     }
 
     // miscellaneous constants
@@ -94,7 +95,9 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
     mapping(bytes32 => uint8[10]) public squads;
     mapping(uint8 => bytes32[]) public squadIdsByMission;
     mapping(uint8 => Mission) public missionInfoByMissionId;
-    mapping(uint256 => ChainLinkRequest) public requests;
+    mapping(uint256 => ChainLinkRequest) private requests;
+
+    uint32 public constant NUM_ATTRIBUTES = 10;
 
     modifier onlyOwnerOrGame() {
         if (msg.sender != owner && msg.sender != address(this)) {
@@ -113,8 +116,8 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
         bytes32 _vrfKeyHash,
         address _vrfCoordinator,
         uint64 _vrfSubscriptionId,
-        uint8[10][5] memory _sceneryIncrementModifiers,
-        uint8[10][5] memory _sceneryDecrementModifiers
+        uint8[NUM_ATTRIBUTES][5] memory _sceneryIncrementModifiers,
+        uint8[NUM_ATTRIBUTES][5] memory _sceneryDecrementModifiers
     ) Owned(msg.sender) VRFConsumerBaseV2(_vrfCoordinator) {
         // chainlink configuration
         vrfKeyHash = _vrfKeyHash;
@@ -131,9 +134,9 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
 
     /// @notice Create a squad team with the given attributes.
     /// @param _attributes Attributes of the squad team.
-    function createSquad(uint8[10] calldata _attributes) external {
+    function createSquad(uint8[NUM_ATTRIBUTES] calldata _attributes) external {
         bytes32 squadId = keccak256(abi.encodePacked(_attributes));
-        for (uint256 i = 0; i < 10; i++) {
+        for (uint256 i = 0; i < NUM_ATTRIBUTES; i++) {
             if (squads[squadId][i] != 0) {
                 revert SquadAlreadyExist();
             }
@@ -246,7 +249,7 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
         requests[requestId] = ChainLinkRequest({
             scenary: 0,
             missionId: missionId,
-            randomness: new uint256[](NUMWORDS - 1)
+            randomness: new uint8[](NUM_ATTRIBUTES)
         });
 
         missionInfoByMissionId[missionId].state = MissionState.InProgress;
@@ -257,31 +260,31 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
     function finishMission(uint8 missionId, uint256 requestId) internal {
         bytes32[] memory squadIds = squadIdsByMission[missionId];
 
-        uint256[] memory randomness = requests[requestId].randomness;
+        uint8[] memory randomness = requests[requestId].randomness;
 
         uint256 scenaryId = requests[requestId].scenary;
-        uint8[10] memory incrementModifier = sceneryIncrementModifiers[
-            scenaryId
-        ];
-        uint8[10] memory decrementModifier = sceneryDecrementModifiers[
-            scenaryId
-        ];
+        uint8[NUM_ATTRIBUTES]
+            memory incrementModifier = sceneryIncrementModifiers[scenaryId];
+        uint8[NUM_ATTRIBUTES]
+            memory decrementModifier = sceneryDecrementModifiers[scenaryId];
 
         uint256 squadsCount = squadIds.length;
+
         for (uint i = 0; i < squadsCount; i++) {
             bytes32 squadId = squadIds[i];
-            uint8[10] memory squadAttr = squads[squadId];
-            for (uint j = 0; j < NUMWORDS; j++) {
-                console.log("before", squadAttr[j]);
-
+            uint8[NUM_ATTRIBUTES] memory squadAttr = squads[squadId];
+            for (uint j = 0; j < NUM_ATTRIBUTES; j++) {
                 squadAttr[j] -= incrementModifier[j];
                 squadAttr[j] += decrementModifier[j];
-
-                console.log("after", squadAttr[j]);
             }
         }
 
-        // dividir los premio  entre los 3 primeros
+        // remove squadId for the mission (squadIdsByMission)
+        // if squadIdsByMission is one or empty, then the mission is completed
+        // if (squadsCount <= 1) {
+        //     removeSqaudIdFromMission(missionId);
+        //     missionInfoByMissionId[missionId].state = MissionState.Completed;
+        // }
         // dejar todo preparado para que los ganadores hagan el claim
         emit FinishedMission(missionId);
     }
@@ -291,16 +294,18 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
         uint256 requestId,
         uint256[] memory randomWords
     ) internal override {
-        requests[requestId].scenary = uint8(
-            randomWords[11] % sceneryIncrementModifiers.length
-        );
-        for (uint256 i = 0; i < NUMWORDS; i++) {
-            console.log("randomNumber", randomWords[i] % 11);
-            requests[requestId].randomness[i] = randomWords[i] % 11;
-        }
         if (requests[requestId].missionId == 0) {
             revert InvalidMissionId();
         }
+        requests[requestId].scenary = uint8(
+            randomWords[NUM_ATTRIBUTES] % sceneryIncrementModifiers.length
+        );
+        for (uint256 i = 0; i < NUM_ATTRIBUTES; i++) {
+            requests[requestId].randomness[i] = uint8(
+                randomWords[i] % (NUM_ATTRIBUTES + 1)
+            );
+        }
+        emit RandomnessReceived(requestId, requests[requestId].randomness);
         finishMission(requests[requestId].missionId, requestId);
     }
 
@@ -317,7 +322,9 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
         );
     }
 
-    function _verifyAttributes(uint8[10] calldata _attributes) internal pure {
+    function _verifyAttributes(
+        uint8[NUM_ATTRIBUTES] calldata _attributes
+    ) internal pure {
         uint8 sum_of_attributes = 0;
         uint256 length = _attributes.length;
         for (uint8 i = 0; i < length; i++) {
@@ -333,8 +340,8 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
     }
 
     function _verifyScenaries(
-        uint8[10][5] memory _sceneryIncrementModifiers,
-        uint8[10][5] memory _sceneryDecrementModifiers
+        uint8[NUM_ATTRIBUTES][5] memory _sceneryIncrementModifiers,
+        uint8[NUM_ATTRIBUTES][5] memory _sceneryDecrementModifiers
     ) internal pure {
         if (
             _sceneryIncrementModifiers.length !=
@@ -358,5 +365,12 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
                 }
             }
         }
+    }
+
+    function getRequest(
+        uint256 missionId
+    ) public view returns (uint8[] memory, uint8, uint8) {
+        ChainLinkRequest memory request = requests[missionId];
+        return (request.randomness, request.scenary, request.missionId);
     }
 }

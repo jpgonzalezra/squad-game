@@ -341,11 +341,17 @@ contract SquadGameTest is Test {
         vrfCoordinator.fulfillRandomWords(requestId, address(game));
 
         uint256[] memory words = utils.getWords(requestId, game.NUMWORDS());
-        (uint256 randomness, uint8 missionIdRequested) = game.requests(
-            missionId
-        );
 
-        assertTrue(randomness == words[0]);
+        (
+            uint8[] memory randomness,
+            uint8 scenary,
+            uint8 missionIdRequested
+        ) = game.getRequest(missionId);
+
+        for (uint8 i = 0; i < randomness.length; i++) {
+            assertTrue(randomness[i] >= 0 && randomness[i] <= 10);
+        }
+        assertTrue(scenary >= 0 && scenary <= 5);
         assertTrue(missionIdRequested == 1);
     }
 
