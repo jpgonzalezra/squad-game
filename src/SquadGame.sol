@@ -28,13 +28,13 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
     uint16 private constant REQUEST_CONFIRMATIONS = 3; // The number of blocks confirmed before the request is
 
     // considered fulfilled
-    uint32 public constant NUMWORDS = 1; // The number of random words to request
+    uint32 public constant NUMWORDS = 11; // The number of random words to request
 
     bytes32 private immutable vrfKeyHash; // The key hash for the VRF request
     uint64 private immutable vrfSubscriptionId; // The subscription ID for the VRF request
 
     struct ChainLinkRequest {
-        uint256 randomness;
+        uint256[] randomness;
         uint8 missionId;
     }
 
@@ -54,6 +54,7 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
     error NotALider();
     error ParticipationFeeNotEnough();
     error NotOwnerOrGame();
+    error InvalidMinParticipants();
 
     int8[10][] public scenarios;
 
@@ -154,6 +155,10 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
         if (countdownDelay > 604800) {
             revert InvalidCountdownDelay();
         }
+        if (minParticipants < 4) {
+            revert InvalidMinParticipants();
+        }
+
         missionInfoByMissionId[missionId] = Mission({
             id: missionId,
             minParticipantsPerMission: minParticipants,
@@ -230,7 +235,7 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
         uint256 requestId = requestRandomness();
         requests[requestId] = ChainLinkRequest({
             missionId: missionId,
-            randomness: 0
+            randomness: new uint256[](NUMWORDS)
         });
 
         missionInfoByMissionId[missionId].state = MissionState.InProgress;
@@ -239,6 +244,9 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
 
     /// @notice Finishes the mission and pays the winners following the received.
     function finishMission(uint8 missionId, uint256 requestId) internal {
+        bytes32[] memory squadIds = squadIdsByMission[missionId];
+        uint256 squadIdsLenth = squadIds.length;
+
         // matematica
         // dividir los premio  entre los 3 primeros
         // dejar todo preparado para que los ganadores hagan el claim
@@ -250,7 +258,7 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
         uint256 requestId,
         uint256[] memory randomWords
     ) internal override {
-        requests[requestId].randomness = randomWords[0];
+        requests[requestId].randomness = randomWords;
         if (requests[requestId].missionId == 0) {
             revert InvalidMissionId();
         }
