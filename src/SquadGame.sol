@@ -57,7 +57,12 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
     error NotOwnerOrGame();
     error InvalidMinParticipants();
 
-    int8[10][] public scenarios;
+    struct Scenary {
+        uint8[10] increases;
+        uint8[10] decreases;
+    }
+
+    Scenary[] internal scenaries;
 
     enum SquadState {
         Unformed, // The squad has not yet been formed
@@ -110,14 +115,14 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
         bytes32 _vrfKeyHash,
         address _vrfCoordinator,
         uint64 _vrfSubscriptionId,
-        int8[10][] memory _scenarios
+        Scenary[] memory _scenaries
     ) Owned(msg.sender) VRFConsumerBaseV2(_vrfCoordinator) {
         // chainlink configuration
         vrfKeyHash = _vrfKeyHash;
         vrfSubscriptionId = _vrfSubscriptionId;
         COORDINATOR = VRFCoordinatorV2Interface(_vrfCoordinator);
 
-        scenarios = _scenarios;
+        scenaries = _scenaries;
     }
 
     /// @notice Create a squad team with the given attributes.
@@ -249,7 +254,7 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
         bytes32[] memory squadIds = squadIdsByMission[missionId];
 
         uint256[] memory randomness = requests[requestId].randomness;
-        int8[10] memory scenarioModifiers = scenarios[
+        Scenary memory scenaryModifiers = scenaries[
             requests[requestId].scenary
         ];
 
@@ -264,7 +269,6 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
             }
         }
 
-        // matematica
         // dividir los premio  entre los 3 primeros
         // dejar todo preparado para que los ganadores hagan el claim
         emit FinishedMission(missionId);
@@ -275,7 +279,7 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
         uint256 requestId,
         uint256[] memory randomWords
     ) internal override {
-        requests[requestId].scenary = randomWords[11] % scenarios.length;
+        requests[requestId].scenary = uint8(randomWords[11] % scenaries.length);
         for (uint256 i = 0; i < NUMWORDS; i++) {
             requests[requestId].randomness[i] = randomWords[i] % 11;
         }

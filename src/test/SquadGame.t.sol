@@ -36,7 +36,7 @@ contract SquadGameTest is Test {
         vrfCoordinator = new MockVRFCoordinatorV2();
         subId = vrfCoordinator.createSubscription();
         vrfCoordinator.fundSubscription(subId, FUND_AMOUNT);
-        game = new SquadGame(keyHash, address(vrfCoordinator), subId, utils.createScenarios());
+        game = new SquadGame(keyHash, address(vrfCoordinator), subId, utils.createScenaries());
         vrfCoordinator.addConsumer(subId, address(game));
     }
 

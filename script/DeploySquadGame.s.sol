@@ -33,32 +33,23 @@ contract DeploySquadGame is Script, HelperConfig {
 
         vm.startBroadcast();
 
-        int8[10][] memory scenarios = new int8[10][](2);
-        scenarios[0] = [
-            int8(2),
-            int8(1),
-            int8(-1),
-            int8(2),
-            int8(0),
-            int8(-2),
-            int8(1),
-            int8(-1),
-            int8(0),
-            int8(2)
-        ];
-        scenarios[1] = [
-            int8(1),
-            int8(-2),
-            int8(0),
-            int8(2),
-            int8(-1),
-            int8(1),
-            int8(2),
-            int8(-2),
-            int8(0),
-            int8(1)
-        ];
-        new SquadGame(keyHash, vrfCoordinator, subscriptionId, scenarios);
+        SquadGame.Scenary[] memory scenaries = new SquadGame.Scenary[](5);
+        scenaries[0].increases = [1, 0, 0, 2, 0, 0, 0, 2, 0, 0];
+        scenaries[0].decreases = [0, 2, 0, 0, 1, 0, 0, 0, 1, 2];
+
+        scenaries[1].increases = [2, 0, 1, 2, 0, 0, 1, 2, 0, 0];
+        scenaries[1].decreases = [0, 1, 0, 0, 0, 0, 0, 0, 2, 2];
+
+        scenaries[2].increases = [0, 1, 0, 1, 0, 0, 0, 1, 0, 0];
+        scenaries[2].decreases = [0, 0, 0, 0, 2, 0, 0, 0, 0, 0];
+
+        scenaries[3].increases = [1, 0, 0, 1, 0, 0, 0, 1, 0, 0];
+        scenaries[3].decreases = [0, 2, 0, 0, 1, 0, 0, 0, 1, 1];
+
+        scenaries[4].increases = [0, 0, 0, 2, 0, 0, 0, 0, 0, 0];
+        scenaries[4].decreases = [0, 0, 0, 0, 1, 0, 0, 0, 1, 0];
+        
+        new SquadGame(keyHash, vrfCoordinator, subscriptionId, scenaries);
 
         vm.stopBroadcast();
     }
