@@ -28,13 +28,14 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
     uint16 private constant REQUEST_CONFIRMATIONS = 3; // The number of blocks confirmed before the request is
 
     // considered fulfilled
-    uint32 public constant NUMWORDS = 11; // The number of random words to request
+    uint32 public constant NUMWORDS = 11; // The number of random words to request, pos 11 => scenario
 
     bytes32 private immutable vrfKeyHash; // The key hash for the VRF request
     uint64 private immutable vrfSubscriptionId; // The subscription ID for the VRF request
 
     struct ChainLinkRequest {
         uint256[] randomness;
+        uint8 scenary;
         uint8 missionId;
     }
 
@@ -234,8 +235,9 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
 
         uint256 requestId = requestRandomness();
         requests[requestId] = ChainLinkRequest({
+            scenary: 0,
             missionId: missionId,
-            randomness: new uint256[](NUMWORDS)
+            randomness: new uint256[](NUMWORDS - 1)
         });
 
         missionInfoByMissionId[missionId].state = MissionState.InProgress;
@@ -245,7 +247,22 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
     /// @notice Finishes the mission and pays the winners following the received.
     function finishMission(uint8 missionId, uint256 requestId) internal {
         bytes32[] memory squadIds = squadIdsByMission[missionId];
-        uint256 squadIdsLenth = squadIds.length;
+
+        uint256[] memory randomness = requests[requestId].randomness;
+        int8[10] memory scenarioModifiers = scenarios[
+            requests[requestId].scenary
+        ];
+
+        uint256 squadsCount = squadIds.length;
+        for (uint i = 0; i < squadsCount; i++) {
+            bytes32 squadId = squadIds[i];
+            uint8[10] memory squadAttr = squads[squadId];
+            for (uint j = 0; j < NUMWORDS; j++) {
+                console.log("before", squadAttr[j]);
+                // squadAttr[j] += scenarioModifiers[j];
+                console.log("after", squadAttr[j]);
+            }
+        }
 
         // matematica
         // dividir los premio  entre los 3 primeros
@@ -258,7 +275,10 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
         uint256 requestId,
         uint256[] memory randomWords
     ) internal override {
-        requests[requestId].randomness = randomWords;
+        requests[requestId].scenary = randomWords[11] % scenarios.length;
+        for (uint256 i = 0; i < NUMWORDS; i++) {
+            requests[requestId].randomness[i] = randomWords[i] % 11;
+        }
         if (requests[requestId].missionId == 0) {
             revert InvalidMissionId();
         }
