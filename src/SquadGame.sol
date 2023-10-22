@@ -44,7 +44,7 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
     error SquadIsNotFormed();
     error SquadAlreadyExist();
     error SquadNotReady();
-    error FailJoinMision();
+    error JoinMissionFailed();
     error MissionNotReady();
     error AlreadyMission();
     error InvalidMissionId();
@@ -53,6 +53,7 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
     error UpgradeFeeNotMet();
     error NotALider();
     error ParticipationFeeNotEnough();
+    error NotOwnerOrGame();
 
     // external factors stagorage
     // struct Scenary {
@@ -95,6 +96,12 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
     mapping(uint8 => Mission) public missionInfoByMissionId;
     mapping(uint256 => ChainLinkRequest) public requests;
 
+    modifier onlyOwnerOrGame() {
+        if (msg.sender != owner && msg.sender != address(this)) {
+            revert NotOwnerOrGame();
+        }
+        _;
+    }
     modifier onlyLider(bytes32 squadId) {
         if (!squadIdsByLider[msg.sender][squadId]) {
             revert NotALider();
@@ -177,7 +184,7 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
             revert MissionNotReady();
         }
         if (squadStateByMissionId[missionId][squadId] != SquadState.Unformed) {
-            revert FailJoinMision();
+            revert JoinMissionFailed();
         }
         if (msg.value < mission.fee) {
             revert ParticipationFeeNotEnough();
@@ -188,7 +195,10 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
         ) {
             missionInfoByMissionId[missionId].countdown = block.timestamp;
         }
+        
+        squadStateByMissionId[missionId][squadId] = SquadState.Ready;
         if (block.timestamp >= mission.countdown + mission.countdownDelay) {
+            squadStateByMissionId[missionId][squadId] = SquadState.InMission;
             this.startMission(missionId);
         }
 
@@ -196,13 +206,12 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
         missionInfoByMissionId[missionId].registered += 1;
 
         squadIdsByMission[missionId].push(squadId);
-        squadStateByMissionId[missionId][squadId] = SquadState.Ready;
 
         emit JoinedMission(squadId, missionId);
     }
 
     /// @notice Execute the run when it is full.
-    function startMission(uint8 missionId) public onlyOwner {
+    function startMission(uint8 missionId) public onlyOwnerOrGame {
         if (
             squadIdsByMission[missionId].length <
             missionInfoByMissionId[missionId].minParticipantsPerMission
@@ -229,6 +238,7 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
             randomness: 0
         });
 
+        missionInfoByMissionId[missionId].state = MissionState.InProgress;
         emit StartedMission(missionId, requestId);
     }
 

@@ -215,104 +215,51 @@ contract SquadGameTest is Test {
         game.createMission(missionId, 5, 0.1 ether, 60);
 
         SquadInfo[] memory players = new SquadInfo[](5);
-        (bytes32 squadId0, uint8[10] memory attributes0) = createSquad(
-            8,
-            5,
-            3,
-            7,
-            1,
-            9,
-            3,
-            10,
-            2,
-            2
+        players[0] = createAndSetupSquadInfo(
+            [8, 5, 3, 7, 1, 9, 3, 10, 2, 2],
+            address(10)
         );
-        players[0] = SquadInfo({
-            lider: address(10),
-            squadId: squadId0,
-            attributes: attributes0
-        });
-
-        (bytes32 squadId1, uint8[10] memory attributes1) = createSquad(
-            6,
-            7,
-            3,
-            7,
-            1,
-            9,
-            3,
-            10,
-            2,
-            2
+        players[1] = createAndSetupSquadInfo(
+            [6, 7, 3, 7, 1, 9, 3, 10, 2, 2],
+            address(11)
         );
-
-        players[1] = SquadInfo({
-            lider: address(11),
-            squadId: squadId1,
-            attributes: attributes1
-        });
-
-        (bytes32 squadId2, uint8[10] memory attributes2) = createSquad(
-            8,
-            5,
-            3,
-            5,
-            2,
-            9,
-            3,
-            10,
-            3,
-            2
+        players[2] = createAndSetupSquadInfo(
+            [8, 5, 3, 5, 2, 9, 3, 10, 3, 2],
+            address(12)
         );
-        players[2] = SquadInfo({
-            lider: address(12),
-            squadId: squadId2,
-            attributes: attributes2
-        });
-
-        (bytes32 squadId3, uint8[10] memory attributes3) = createSquad(
-            8,
-            5,
-            3,
-            7,
-            3,
-            9,
-            3,
-            5,
-            2,
-            5
+        players[3] = createAndSetupSquadInfo(
+            [8, 5, 3, 7, 3, 9, 3, 5, 2, 5],
+            address(13)
         );
-        players[3] = SquadInfo({
-            lider: address(13),
-            squadId: squadId3,
-            attributes: attributes3
-        });
-
-        (bytes32 squadId4, uint8[10] memory attributes4) = createSquad(
-            7,
-            4,
-            2,
-            6,
-            1,
-            7,
-            3,
-            10,
-            6,
-            4
+        players[4] = createAndSetupSquadInfo(
+            [7, 4, 2, 6, 1, 7, 3, 10, 6, 4],
+            address(14)
         );
-        players[4] = SquadInfo({
-            lider: address(14),
-            squadId: squadId4,
-            attributes: attributes4
-        });
 
         joinMission(players, missionId);
-
         game.startMission(missionId);
 
         // should start after countdown is over and mission is ready
         uint8 anotherMissionId = 2;
-        game.createMission(anotherMissionId, 2, 0.2 ether, 3600);
+        game.createMission(anotherMissionId, 1, 0.2 ether, 3600);
+
+        vm.startPrank(players[0].lider);
+        game.joinMission{value: 0.2 ether}(
+            players[0].squadId,
+            anotherMissionId
+        );
+        SquadGame.SquadState squadInfoState = game.squadStateByMissionId(
+            anotherMissionId,
+            players[0].squadId
+        );
+        assertTrue(squadInfoState == SquadGame.SquadState.Ready);
+        vm.stopPrank();
+
+        (, , , , , , , SquadGame.MissionState state) = game
+            .missionInfoByMissionId(anotherMissionId);
+        assertTrue(state == SquadGame.MissionState.Ready);
+
+        vm.warp(block.timestamp + 3600);
 
         vm.startPrank(players[1].lider);
         game.joinMission{value: 0.2 ether}(
@@ -321,27 +268,26 @@ contract SquadGameTest is Test {
         );
         SquadGame.SquadState squadInfoState1 = game.squadStateByMissionId(
             anotherMissionId,
-            squadId1
+            players[1].squadId
         );
+        assertTrue(squadInfoState1 == SquadGame.SquadState.InMission);
         vm.stopPrank();
 
-        vm.startPrank(players[2].lider);
-        game.joinMission{value: 0.2 ether}(
-            players[2].squadId,
-            anotherMissionId
-        );
-        assertTrue(squadInfoState1 == SquadGame.SquadState.Ready);
-        SquadGame.SquadState squadInfoState2 = game.squadStateByMissionId(
+        (, , , , , , , SquadGame.MissionState state1) = game
+            .missionInfoByMissionId(anotherMissionId);
+        assertTrue(state1 == SquadGame.MissionState.InProgress);
+
+        squadInfoState = game.squadStateByMissionId(
             anotherMissionId,
-            squadId2
+            players[0].squadId
         );
-        assertTrue(squadInfoState2 == SquadGame.SquadState.Ready);
-        vm.stopPrank();
+        assertTrue(squadInfoState == SquadGame.SquadState.InMission);
 
-        //modificar el tiempo
-        //ingresar un nuevo jugador
-
-        //ver que este en mission state
+        squadInfoState1 = game.squadStateByMissionId(
+            anotherMissionId,
+            players[1].squadId
+        );
+        assertTrue(squadInfoState1 == SquadGame.SquadState.InMission);
 
         // should revert if squad is not the leader
         // should revert if the mission is not ready
@@ -452,5 +398,30 @@ contract SquadGameTest is Test {
                 ]
             )
         );
+    }
+
+    function createAndSetupSquadInfo(
+        uint8[10] memory attributes,
+        address leader
+    ) internal pure returns (SquadInfo memory) {
+        (bytes32 squadId, uint8[10] memory squadAttributes) = createSquad(
+            attributes[0],
+            attributes[1],
+            attributes[2],
+            attributes[3],
+            attributes[4],
+            attributes[5],
+            attributes[6],
+            attributes[7],
+            attributes[8],
+            attributes[9]
+        );
+
+        return
+            SquadInfo({
+                lider: leader,
+                squadId: squadId,
+                attributes: squadAttributes
+            });
     }
 }
