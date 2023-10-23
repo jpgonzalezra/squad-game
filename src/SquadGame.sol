@@ -36,7 +36,7 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
     uint64 private immutable vrfSubscriptionId; // The subscription ID for the VRF request
 
     struct ChainLinkRequest {
-        uint8 scenary;
+        uint8 scenaryId;
         uint8 missionId;
         uint8[] randomness;
     }
@@ -248,7 +248,7 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
 
         uint256 requestId = requestRandomness();
         requests[requestId] = ChainLinkRequest({
-            scenary: 0,
+            scenaryId: 0,
             missionId: missionId,
             randomness: new uint8[](ATTR_COUNT)
         });
@@ -263,7 +263,7 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
 
         uint8[] memory randomness = requests[requestId].randomness;
 
-        uint256 scenaryId = requests[requestId].scenary;
+        uint256 scenaryId = requests[requestId].scenaryId;
         uint8[ATTR_COUNT] memory incrementModifier = incrementModifiers[
             scenaryId
         ];
