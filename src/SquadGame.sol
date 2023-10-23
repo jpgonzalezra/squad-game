@@ -16,11 +16,11 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
     VRFCoordinatorV2Interface immutable COORDINATOR;
 
     // events
-    event SquadCreated(bytes32 squadId, uint8[10] attributes);
+    event SquadCreated(address lider, bytes32 squadId, uint8[10] attributes);
     event MissionCreated(uint8 missionId);
     event MissionJoined(bytes32 squadId, uint8 missionId);
     event MissionStarted(uint8 missionId, uint256 requestId);
-    event MissionFinished(uint8 missionId, bytes32[] winners);
+    event MissionFinished(uint8 missionId, bytes32 winner);
     event RoundPlayed(uint8 missionId, uint8 round);
     event RequestedLeaderboard(bytes32 indexed requestId, uint256 value);
     event RandomnessReceived(uint256 indexed requestId, uint8[] randomness);
@@ -153,7 +153,7 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
         squadIdsByLider[msg.sender][squadId] = true;
         squads[squadId] = Squad({health: 20, attributes: _attributes});
 
-        emit SquadCreated(squadId, _attributes);
+        emit SquadCreated(msg.sender, squadId, _attributes);
     }
 
     /// @notice Create a mission with the given id.
@@ -283,8 +283,11 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
             bytes32 squadId = squadIds[i];
             uint8[ATTR_COUNT] memory squadAttr = squads[squadId].attributes;
             for (uint j = 0; j < ATTR_COUNT; j++) {
-                squadAttr[j] -= incrementModifier[j];
-                squadAttr[j] += decrementModifier[j];
+                squadAttr[j] += incrementModifier[j];
+                if (squadAttr[j] > 10) {
+                    squadAttr[j] = 10;
+                }
+                squadAttr[j] -= decrementModifier[j];
 
                 if (randomness[j] > squadAttr[j]) {
                     squads[squadId].health -= 1;
@@ -296,21 +299,25 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
             }
         }
 
-        if (
-            squadIdsByMission[missionId].length == 0 ||
-            squadIdsByMission[missionId].length == 1
-        ) {
-            if (squadIdsByMission[missionId].length == 0) {
+        uint256 squadIdsCount = squadIdsByMission[missionId].length;
+        if (squadIdsCount == 0 || squadIdsCount == 1) {
+            if (squadIdsCount == 0) {
                 // send the rewards from this mission to a general pool to fund the end of the month mission
+
+                return;
             }
+            bytes32 winner = squadIdsByMission[missionId][0];
             delete squadIdsByMission[missionId];
             missionInfoByMissionId[missionId].state = MissionState.Completed;
-            emit MissionFinished(missionId, squadIdsByMission[missionId]);
+            emit MissionFinished(missionId, winner);
         } else {
+            missionInfoByMissionId[missionId].round += 1;
             emit RoundPlayed(
                 missionId,
                 missionInfoByMissionId[missionId].round
+                // squadIdsByMission[missionId]
             );
+            // pedir otro numero
         }
     }
 
@@ -322,12 +329,14 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
         if (requests[requestId].missionId == 0) {
             revert InvalidMissionId();
         }
-        requests[requestId].scenaryId = uint8(
-            randomWords[ATTR_COUNT] % incrementModifiers.length
+        requests[requestId].scenaryId = normalizeToRange(
+            randomWords[ATTR_COUNT],
+            incrementModifiers.length - 1
         );
         for (uint256 i = 0; i < ATTR_COUNT; i++) {
-            requests[requestId].randomness[i] = uint8(
-                randomWords[i] % (ATTR_COUNT + 1)
+            requests[requestId].randomness[i] = normalizeToRange(
+                randomWords[i],
+                ATTR_COUNT
             );
         }
         emit RandomnessReceived(requestId, requests[requestId].randomness);
@@ -424,5 +433,13 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
             squadIds[indexToRemove] = squadIds[squadIds.length - 1];
             squadIds.pop();
         }
+    }
+
+    function normalizeToRange(
+        uint256 value,
+        uint256 maxRange
+    ) internal pure returns (uint8) {
+        uint256 adjustedRange = maxRange + 1;
+        return uint8(value % adjustedRange);
     }
 }

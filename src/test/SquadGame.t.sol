@@ -10,9 +10,9 @@ import {Utilities} from "./utils/Utilities.sol";
 import "forge-std/console.sol";
 
 contract SquadGameTest is Test {
-    event SquadCreated(bytes32 squadId, uint8[10] attributes);
+    event SquadCreated(address lider, bytes32 squadId, uint8[10] attributes);
     event MissionCreated(uint8 missionId);
-    event JoinedMission(bytes32 squadId, uint8 missionId);
+    event MissionJoined(bytes32 squadId, uint8 missionId);
     event MissionStarted(uint8 missionId, uint256 requestId);
     event RoundPlayed(uint8 missionId, uint8 round);
     event RequestedLeaderboard(bytes32 indexed requestId, uint256 value);
@@ -109,7 +109,7 @@ contract SquadGameTest is Test {
         );
 
         vm.expectEmit(true, true, true, true);
-        emit SquadCreated(squadId, attributes);
+        emit SquadCreated(owner, squadId, attributes);
         game.createSquad(attributes);
 
         assertTrue(game.squadIdsByLider(owner, squadId));
@@ -190,7 +190,7 @@ contract SquadGameTest is Test {
         game.createSquad(attributes);
 
         vm.expectEmit(true, true, true, true);
-        emit JoinedMission(squadId, missionId);
+        emit MissionJoined(squadId, missionId);
         game.joinMission{value: 0.1 ether}(squadId, missionId);
         vm.stopPrank();
 
@@ -311,41 +311,43 @@ contract SquadGameTest is Test {
         // should revert if payment is not enough
     }
 
-    function testFinishMission() public {
+    function testPlayRound() public {
         uint8 missionId = 1;
-        game.createMission(missionId, 1, 0.1 ether, 60);
+        game.createMission(missionId, 5, 0.1 ether, 60);
 
-        address alice = address(2);
-        vm.startPrank(alice);
-        utils.fundSpecificAddress(alice);
-
-        (bytes32 squadId, uint8[10] memory attributes) = utils.createSquad(
-            8,
-            5,
-            3,
-            7,
-            1,
-            9,
-            3,
-            10,
-            2,
-            2
+        Utilities.SquadInfo[] memory players = new Utilities.SquadInfo[](5);
+        players[0] = utils.createAndSetupSquadInfo(
+            [8, 5, 3, 7, 1, 9, 3, 10, 2, 2],
+            address(10)
         );
-        game.createSquad(attributes);
+        players[1] = utils.createAndSetupSquadInfo(
+            [6, 7, 3, 7, 1, 9, 3, 10, 2, 2],
+            address(11)
+        );
+        players[2] = utils.createAndSetupSquadInfo(
+            [8, 5, 3, 5, 2, 9, 3, 10, 3, 2],
+            address(12)
+        );
+        players[3] = utils.createAndSetupSquadInfo(
+            [8, 5, 3, 7, 3, 9, 3, 5, 2, 5],
+            address(13)
+        );
+        players[4] = utils.createAndSetupSquadInfo(
+            [7, 4, 2, 6, 1, 7, 3, 10, 6, 4],
+            address(14)
+        );
 
-        game.joinMission{value: 0.1 ether}(squadId, missionId);
-        vm.stopPrank();
+        joinMission(players, missionId);
 
         game.startMission(missionId);
 
         uint256 requestId = 1;
-
         vm.expectEmit(true, true, true, true);
+
         emit RoundPlayed(missionId, 1);
         vrfCoordinator.fulfillRandomWords(requestId, address(game));
 
-        // uint256[] memory words = utils.getWords(requestId, game.NUMWORDS());
-
+        uint256[] memory words = utils.getWords(requestId, game.NUMWORDS(), 10);
         (
             uint8[] memory randomness,
             uint8 scenary,
@@ -353,10 +355,19 @@ contract SquadGameTest is Test {
         ) = game.getRequest(missionId);
 
         for (uint8 i = 0; i < randomness.length; i++) {
-            assertTrue(randomness[i] >= 0 && randomness[i] <= 10);
+            assertTrue(randomness[i] == words[i]);
         }
         assertTrue(scenary >= 0 && scenary <= 5);
         assertTrue(missionIdRequested == 1);
+
+        (, uint8 health) = game.getSquad(players[0].squadId);
+        console.log(health);
+        assertTrue(health == 15);
+        // (, health) = game.getSquad(players[1].squadId);
+        // assertTrue(health == 15);
+        // (, health) = game.getSquad(players[2].squadId);
+        // (, health) = game.getSquad(players[3].squadId);
+        // (, health) = game.getSquad(players[4].squadId);
     }
 
     function joinMission(
