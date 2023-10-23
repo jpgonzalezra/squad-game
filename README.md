@@ -73,7 +73,7 @@ make deploy-sepolia contract=<CONTRACT_NAME>
 For example:
 
 ```
-make deploy-sepolia contract=PriceFeedConsumer
+make deploy-sepolia contract=SquadGame
 ```
 
 This will run the forge script, the script it's running is:
