@@ -91,13 +91,18 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
         MissionState state;
     }
 
+    struct Squad {
+        uint8 health;
+        uint8[10] attributes;
+    }
+
     uint32 private constant ATTR_COUNT = 10;
 
     // mapping storage
     mapping(address => mapping(bytes32 => bool)) public squadIdsByLider;
     mapping(uint8 => mapping(bytes32 => SquadState))
         public squadStateByMissionId;
-    mapping(bytes32 => uint8[10]) public squads;
+    mapping(bytes32 => Squad) public squads;
     mapping(uint8 => bytes32[]) public squadIdsByMission;
     mapping(uint8 => Mission) public missionInfoByMissionId;
     mapping(uint256 => ChainLinkRequest) private requests;
@@ -135,21 +140,21 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
     /// @notice Create a squad team with the given attributes.
     /// @param _attributes Attributes of the squad team.
     function createSquad(uint8[ATTR_COUNT] calldata _attributes) external {
+        // If any mission is in a position to play a round, execute it regardless
+
         bytes32 squadId = keccak256(abi.encodePacked(_attributes));
         for (uint256 i = 0; i < ATTR_COUNT; i++) {
-            if (squads[squadId][i] != 0) {
+            if (squads[squadId].health != 0) {
                 revert SquadAlreadyExist();
             }
         }
         _verifyAttributes(_attributes);
 
         squadIdsByLider[msg.sender][squadId] = true;
-        squads[squadId] = _attributes;
+        squads[squadId] = Squad({health: 20, attributes: _attributes});
 
         emit SquadCreated(squadId, _attributes);
     }
-
-    function createLocation() external onlyOwner {}
 
     /// @notice Create a mission with the given id.
     /// @param missionId Id of the mission.
@@ -159,6 +164,8 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
         uint256 fee,
         uint16 countdownDelay
     ) external onlyOwner {
+        // If any mission is in a position to play a round, execute it regardless
+
         if (missionId == 0) {
             revert InvalidMissionId();
         }
@@ -193,6 +200,8 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
         bytes32 squadId,
         uint8 missionId
     ) external payable onlyLider(squadId) {
+        // If any mission is in a position to play a round, execute it regardless
+
         Mission memory mission = missionInfoByMissionId[missionId];
         if (mission.state != MissionState.Ready) {
             revert MissionNotReady();
@@ -275,17 +284,17 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
 
         for (uint i = 0; i < squadsCount; i++) {
             bytes32 squadId = squadIds[i];
-            uint8[ATTR_COUNT] memory squadAttr = squads[squadId];
+            uint8[ATTR_COUNT] memory squadAttr = squads[squadId].attributes;
             for (uint j = 0; j < ATTR_COUNT; j++) {
                 squadAttr[j] -= incrementModifier[j];
                 squadAttr[j] += decrementModifier[j];
 
                 if (randomness[j] > squadAttr[j]) {
-                    // health -= 1
-                    // if (health == 0){
-                    //     removeSquadIdFromMission(missionId, squadId);
-                    //     continue;
-                    // }
+                    squads[squadId].health -= 1;
+                    if (squads[squadId].health == 0) {
+                        removeSquadIdFromMission(missionId, squadId);
+                        continue;
+                    }
                 }
             }
 
@@ -379,6 +388,13 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
                 }
             }
         }
+    }
+
+    function getSquad(
+        bytes32 squadId
+    ) public view returns (uint8[10] memory, uint8) {
+        Squad memory squad = squads[squadId];
+        return (squad.attributes, squad.health);
     }
 
     function getRequest(

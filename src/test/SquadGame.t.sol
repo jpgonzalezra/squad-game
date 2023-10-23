@@ -113,16 +113,18 @@ contract SquadGameTest is Test {
 
         assertTrue(game.squadIdsByLider(owner, squadId));
 
-        assertTrue(game.squads(squadId, 0) == 8);
-        assertTrue(game.squads(squadId, 1) == 5);
-        assertTrue(game.squads(squadId, 2) == 3);
-        assertTrue(game.squads(squadId, 3) == 7);
-        assertTrue(game.squads(squadId, 4) == 1);
-        assertTrue(game.squads(squadId, 5) == 9);
-        assertTrue(game.squads(squadId, 6) == 3);
-        assertTrue(game.squads(squadId, 7) == 10);
-        assertTrue(game.squads(squadId, 8) == 2);
-        assertTrue(game.squads(squadId, 9) == 2);
+        (attributes, ) = game.getSquad(squadId);
+
+        assertTrue(attributes[0] == 8);
+        assertTrue(attributes[1] == 5);
+        assertTrue(attributes[2] == 3);
+        assertTrue(attributes[3] == 7);
+        assertTrue(attributes[4] == 1);
+        assertTrue(attributes[5] == 9);
+        assertTrue(attributes[6] == 3);
+        assertTrue(attributes[7] == 10);
+        assertTrue(attributes[8] == 2);
+        assertTrue(attributes[9] == 2);
 
         // should revert if squad already exists
         vm.expectRevert(SquadGame.SquadAlreadyExist.selector);
