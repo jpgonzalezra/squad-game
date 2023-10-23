@@ -279,6 +279,13 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
             for (uint j = 0; j < ATTR_COUNT; j++) {
                 squadAttr[j] -= incrementModifier[j];
                 squadAttr[j] += decrementModifier[j];
+
+                if (randomness[j] > squadAttr[j]) {
+                    // health -= 1
+                    // if (health == 0){
+                    //     removeSquadIdFromMission(missionId, squadId);
+                    // }
+                }
             }
         }
 
@@ -298,7 +305,6 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
             missionInfoByMissionId[missionId].state = MissionState.Completed;
             emit MissionFinished(missionId, squadIdsByMission[missionId]);
         }
-
     }
 
     /// @notice Callback function used by the VRF Coordinator to return the random number
@@ -388,7 +394,7 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
         bytes32 squadId
     ) internal {
         bytes32[] storage squadIds = squadIdsByMission[missionId];
-        if (squadIds.length == 1)  {
+        if (squadIds.length == 1) {
             revert InvalidOperation();
         }
 
