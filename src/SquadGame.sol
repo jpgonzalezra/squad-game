@@ -284,26 +284,25 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
                     // health -= 1
                     // if (health == 0){
                     //     removeSquadIdFromMission(missionId, squadId);
+                    //     continue;
                     // }
                 }
             }
+
+            if (squadIdsByMission[missionId].length == 1) {
+                break;
+            }
         }
 
-        Mission memory mission = missionInfoByMissionId[missionId];
-        // remove squadId for the mission (squadIdsByMission)
-        // if squadIdsByMission is one or empty, then the mission is completed
-        // if (squadsCount <= 1) {
-        //     removeSqaudIdFromMission(missionId);
-        //     missionInfoByMissionId[missionId].state = MissionState.Completed;
-        // }
-        // dejar todo preparado para que los ganadores hagan el claim
-        emit RoundPlayed(missionId, mission.round);
-
-        //or
         if (squadIdsByMission[missionId].length == 1) {
             delete squadIdsByMission[missionId];
             missionInfoByMissionId[missionId].state = MissionState.Completed;
             emit MissionFinished(missionId, squadIdsByMission[missionId]);
+        } else {
+            emit RoundPlayed(
+                missionId,
+                missionInfoByMissionId[missionId].round
+            );
         }
     }
 
@@ -315,7 +314,7 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
         if (requests[requestId].missionId == 0) {
             revert InvalidMissionId();
         }
-        requests[requestId].scenary = uint8(
+        requests[requestId].scenaryId = uint8(
             randomWords[ATTR_COUNT] % incrementModifiers.length
         );
         for (uint256 i = 0; i < ATTR_COUNT; i++) {
@@ -386,7 +385,7 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
         uint256 missionId
     ) public view returns (uint8[] memory, uint8, uint8) {
         ChainLinkRequest memory request = requests[missionId];
-        return (request.randomness, request.scenary, request.missionId);
+        return (request.randomness, request.scenaryId, request.missionId);
     }
 
     function removeSquadIdFromMission(
