@@ -13,8 +13,8 @@ contract SquadGameTest is Test {
     event SquadCreated(bytes32 squadId, uint8[10] attributes);
     event MissionCreated(uint8 missionId);
     event JoinedMission(bytes32 squadId, uint8 missionId);
-    event StartedMission(uint8 missionId, uint256 requestId);
-    event FinishedMission(uint8 missionId);
+    event MissionStarted(uint8 missionId, uint256 requestId);
+    event RoundPlayed(uint8 missionId, uint8 round);
     event RequestedLeaderboard(bytes32 indexed requestId, uint256 value);
 
     LinkToken public linkToken;
@@ -70,6 +70,7 @@ contract SquadGameTest is Test {
             uint8 id,
             uint8 minParticipantsPerMission,
             uint8 registered,
+            uint8 round,
             SquadGame.MissionState state
         ) = game.missionInfoByMissionId(1);
         assertTrue(id == 1);
@@ -267,7 +268,7 @@ contract SquadGameTest is Test {
         assertTrue(squadInfoState == SquadGame.SquadState.Ready);
         vm.stopPrank();
 
-        (, , , , , , , SquadGame.MissionState state) = game
+        (, , , , , , , , SquadGame.MissionState state) = game
             .missionInfoByMissionId(anotherMissionId);
         assertTrue(state == SquadGame.MissionState.Ready);
 
@@ -285,7 +286,7 @@ contract SquadGameTest is Test {
         assertTrue(squadInfoState1 == SquadGame.SquadState.InMission);
         vm.stopPrank();
 
-        (, , , , , , , SquadGame.MissionState state1) = game
+        (, , , , , , , , SquadGame.MissionState state1) = game
             .missionInfoByMissionId(anotherMissionId);
         assertTrue(state1 == SquadGame.MissionState.InProgress);
 
@@ -337,7 +338,7 @@ contract SquadGameTest is Test {
         uint256 requestId = 1;
 
         vm.expectEmit(true, true, true, true);
-        emit FinishedMission(missionId);
+        emit RoundPlayed(missionId, 1);
         vrfCoordinator.fulfillRandomWords(requestId, address(game));
 
         uint256[] memory words = utils.getWords(requestId, game.NUMWORDS());

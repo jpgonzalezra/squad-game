@@ -18,9 +18,10 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
     // events
     event SquadCreated(bytes32 squadId, uint8[10] attributes);
     event MissionCreated(uint8 missionId);
-    event JoinedMission(bytes32 squadId, uint8 missionId);
-    event StartedMission(uint8 missionId, uint256 requestId);
-    event FinishedMission(uint8 missionId);
+    event MissionJoined(bytes32 squadId, uint8 missionId);
+    event MissionStarted(uint8 missionId, uint256 requestId);
+    event MissionFinished(uint8 missionId, bytes32[] winners);
+    event RoundPlayed(uint8 missionId, uint8 round);
     event RequestedLeaderboard(bytes32 indexed requestId, uint256 value);
     event RandomnessReceived(uint256 indexed requestId, uint8[] randomness);
 
@@ -59,6 +60,7 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
     error ParticipationFeeNotEnough();
     error NotOwnerOrGame();
     error InvalidMinParticipants();
+    error InvalidOperation();
 
     uint8[10][5] public incrementModifiers;
     uint8[10][5] public decrementModifiers;
@@ -85,6 +87,7 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
         uint8 id;
         uint8 minParticipantsPerMission;
         uint8 registered;
+        uint8 round;
         MissionState state;
     }
 
@@ -177,6 +180,7 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
             registered: 0,
             countdown: 0,
             rewards: 0,
+            round: 0,
             countdownDelay: countdownDelay
         });
         emit MissionCreated(missionId);
@@ -217,7 +221,7 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
 
         squadIdsByMission[missionId].push(squadId);
 
-        emit JoinedMission(squadId, missionId);
+        emit MissionJoined(squadId, missionId);
     }
 
     /// @notice Execute the run when it is full.
@@ -250,11 +254,11 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
         });
 
         missionInfoByMissionId[missionId].state = MissionState.InProgress;
-        emit StartedMission(missionId, requestId);
+        emit MissionStarted(missionId, requestId);
     }
 
-    /// @notice Finishes the mission and pays the winners following the received.
-    function finishMission(uint8 missionId, uint256 requestId) internal {
+    /// @notice Play a Round if the mission is over, pays the winners following the received.
+    function playRound(uint8 missionId, uint256 requestId) internal {
         bytes32[] memory squadIds = squadIdsByMission[missionId];
 
         uint8[] memory randomness = requests[requestId].randomness;
@@ -278,6 +282,7 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
             }
         }
 
+        Mission memory mission = missionInfoByMissionId[missionId];
         // remove squadId for the mission (squadIdsByMission)
         // if squadIdsByMission is one or empty, then the mission is completed
         // if (squadsCount <= 1) {
@@ -285,7 +290,15 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
         //     missionInfoByMissionId[missionId].state = MissionState.Completed;
         // }
         // dejar todo preparado para que los ganadores hagan el claim
-        emit FinishedMission(missionId);
+        emit RoundPlayed(missionId, mission.round);
+
+        //or
+        if (squadIdsByMission[missionId].length == 1) {
+            delete squadIdsByMission[missionId];
+            missionInfoByMissionId[missionId].state = MissionState.Completed;
+            emit MissionFinished(missionId, squadIdsByMission[missionId]);
+        }
+
     }
 
     /// @notice Callback function used by the VRF Coordinator to return the random number
@@ -305,7 +318,7 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
             );
         }
         emit RandomnessReceived(requestId, requests[requestId].randomness);
-        finishMission(requests[requestId].missionId, requestId);
+        playRound(requests[requestId].missionId, requestId);
     }
 
     /// @notice Requests randomness from a user-provided seed
@@ -368,5 +381,28 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
     ) public view returns (uint8[] memory, uint8, uint8) {
         ChainLinkRequest memory request = requests[missionId];
         return (request.randomness, request.scenary, request.missionId);
+    }
+
+    function removeSquadIdFromMission(
+        uint8 missionId,
+        bytes32 squadId
+    ) internal {
+        bytes32[] storage squadIds = squadIdsByMission[missionId];
+        if (squadIds.length == 1)  {
+            revert InvalidOperation();
+        }
+
+        uint256 indexToRemove = squadIds.length;
+        for (uint256 i = 0; i < squadIds.length; i++) {
+            if (squadIds[i] == squadId) {
+                indexToRemove = i;
+                break;
+            }
+        }
+
+        if (indexToRemove < squadIds.length) {
+            squadIds[indexToRemove] = squadIds[squadIds.length - 1];
+            squadIds.pop();
+        }
     }
 }
