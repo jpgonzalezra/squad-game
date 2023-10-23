@@ -74,6 +74,7 @@ contract SquadGameTest is Test {
             SquadGame.MissionState state
         ) = game.missionInfoByMissionId(1);
         assertTrue(id == 1);
+        assertTrue(round == 1);
         assertTrue(state == SquadGame.MissionState.Ready);
         assertTrue(minParticipantsPerMission == 8);
         assertTrue(countdownDelay == 60);
@@ -343,7 +344,7 @@ contract SquadGameTest is Test {
         emit RoundPlayed(missionId, 1);
         vrfCoordinator.fulfillRandomWords(requestId, address(game));
 
-        uint256[] memory words = utils.getWords(requestId, game.NUMWORDS());
+        // uint256[] memory words = utils.getWords(requestId, game.NUMWORDS());
 
         (
             uint8[] memory randomness,

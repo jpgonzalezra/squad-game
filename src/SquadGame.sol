@@ -175,9 +175,6 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
         if (countdownDelay > 604800) {
             revert InvalidCountdownDelay();
         }
-        // if (minParticipants < 4) {
-        //     revert InvalidMinParticipants();
-        // }
 
         missionInfoByMissionId[missionId] = Mission({
             id: missionId,
@@ -297,13 +294,15 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
                     }
                 }
             }
-
-            if (squadIdsByMission[missionId].length == 1) {
-                break;
-            }
         }
 
-        if (squadIdsByMission[missionId].length == 1) {
+        if (
+            squadIdsByMission[missionId].length == 0 ||
+            squadIdsByMission[missionId].length == 1
+        ) {
+            if (squadIdsByMission[missionId].length == 0) {
+                // send the rewards from this mission to a general pool to fund the end of the month mission
+            }
             delete squadIdsByMission[missionId];
             missionInfoByMissionId[missionId].state = MissionState.Completed;
             emit MissionFinished(missionId, squadIdsByMission[missionId]);
