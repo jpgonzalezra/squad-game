@@ -21,7 +21,7 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
     event MissionJoined(bytes32 squadId, uint8 missionId);
     event MissionStarted(uint8 missionId, uint256 requestId);
     event MissionFinished(uint8 missionId, bytes32 winner);
-    event RoundPlayed(uint8 missionId, uint8 round);
+    event RoundPlayed(uint8 missionId, uint8 scenaryId, uint8 round);
     event RequestedLeaderboard(bytes32 indexed requestId, uint256 value);
     event RandomnessReceived(uint256 indexed requestId, uint8[] randomness);
 
@@ -263,61 +263,73 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
         emit MissionStarted(missionId, requestId);
     }
 
-    /// @notice Play a Round if the mission is over, pays the winners following the received.
-    function playRound(uint8 missionId, uint256 requestId) internal {
+    /// @notice Execute the run when it is full.
+    function finishMission(uint8 missionId, uint256 requestId) internal {
         bytes32[] memory squadIds = squadIdsByMission[missionId];
-
         uint8[] memory randomness = requests[requestId].randomness;
 
-        uint256 scenaryId = requests[requestId].scenaryId;
-        uint8[ATTR_COUNT] memory incrementModifier = incrementModifiers[
-            scenaryId
-        ];
-        uint8[ATTR_COUNT] memory decrementModifier = decrementModifiers[
-            scenaryId
-        ];
-
         uint256 squadsCount = squadIds.length;
+        bool finished = false;
+        for (uint8 r = 1; r <= 50 || finished; r++) {
+            uint8 scenaryId = requests[requestId].scenaryId;
 
-        for (uint i = 0; i < squadsCount; i++) {
-            bytes32 squadId = squadIds[i];
-            uint8[ATTR_COUNT] memory squadAttr = squads[squadId].attributes;
-            for (uint j = 0; j < ATTR_COUNT; j++) {
-                squadAttr[j] += incrementModifier[j];
-                if (squadAttr[j] > 10) {
-                    squadAttr[j] = 10;
-                }
-                squadAttr[j] -= decrementModifier[j];
+            if (requests[requestId].scenaryId <= incrementModifiers.length) {
+                requests[requestId].scenaryId += 1;
+            } else {
+                requests[requestId].scenaryId = 0;
+                scenaryId = requests[requestId].scenaryId;
+            }
 
-                if (randomness[j] > squadAttr[j]) {
-                    squads[squadId].health -= 1;
-                    if (squads[squadId].health == 0) {
-                        removeSquadIdFromMission(missionId, squadId);
-                        continue;
+            uint8[ATTR_COUNT] memory incrementModifier = incrementModifiers[
+                scenaryId
+            ];
+            uint8[ATTR_COUNT] memory decrementModifier = decrementModifiers[
+                scenaryId
+            ];
+
+            for (uint i = 0; i < squadsCount; i++) {
+                bytes32 squadId = squadIds[i];
+                uint8[ATTR_COUNT] memory squadAttr = squads[squadId].attributes;
+                for (uint j = 0; j < ATTR_COUNT; j++) {
+                    squadAttr[j] += incrementModifier[j];
+                    if (squadAttr[j] > 10) {
+                        squadAttr[j] = 10;
+                    }
+
+                    if (decrementModifier[j] < squadAttr[j]) {
+                        squadAttr[j] -= decrementModifier[j];
+                    } else {
+                        squadAttr[j] = 0;
+                    }
+
+                    if (randomness[j] > squadAttr[j]) {
+                        squads[squadId].health -= 1;
+                        if (squads[squadId].health == 0) {
+                            removeSquadIdFromMission(missionId, squadId);
+                        }
+                    }
+                    if (squadIdsByMission[missionId].length == 1) {
+                        finished = true;
                     }
                 }
             }
-        }
 
-        uint256 squadIdsCount = squadIdsByMission[missionId].length;
-        if (squadIdsCount == 0 || squadIdsCount == 1) {
-            if (squadIdsCount == 0) {
-                // send the rewards from this mission to a general pool to fund the end of the month mission
-
-                return;
+            if (finished) {
+                bytes32 winner = squadIdsByMission[missionId][0];
+                delete squadIdsByMission[missionId];
+                missionInfoByMissionId[missionId].state = MissionState
+                    .Completed;
+                emit MissionFinished(missionId, winner);
+            } else {
+                missionInfoByMissionId[missionId].round = r;
+                emit RoundPlayed(
+                    missionId,
+                    scenaryId,
+                    missionInfoByMissionId[missionId].round
+                    // squadIdsByMission[missionId]
+                );
             }
-            bytes32 winner = squadIdsByMission[missionId][0];
-            delete squadIdsByMission[missionId];
-            missionInfoByMissionId[missionId].state = MissionState.Completed;
-            emit MissionFinished(missionId, winner);
-        } else {
-            missionInfoByMissionId[missionId].round += 1;
-            emit RoundPlayed(
-                missionId,
-                missionInfoByMissionId[missionId].round
-                // squadIdsByMission[missionId]
-            );
-            // pedir otro numero
+            // suffle randomness and squadIds
         }
     }
 
@@ -340,7 +352,7 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
             );
         }
         emit RandomnessReceived(requestId, requests[requestId].randomness);
-        playRound(requests[requestId].missionId, requestId);
+        finishMission(requests[requestId].missionId, requestId);
     }
 
     /// @notice Requests randomness from a user-provided seed
