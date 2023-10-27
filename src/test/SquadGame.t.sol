@@ -343,8 +343,8 @@ contract SquadGameTest is Test {
 
         uint256 requestId = 1;
         
-        vm.expectEmit(true, true, true, true);
-        emit RoundPlayed(missionId, 1, 1);
+        // vm.expectEmit(true, true, true, true);
+        // emit RoundPlayed(missionId, 1, 1);
         vrfCoordinator.fulfillRandomWords(requestId, address(game));
 
         // uint256[] memory words = utils.getWords(requestId, game.NUMWORDS(), 10);

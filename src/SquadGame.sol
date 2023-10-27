@@ -4,6 +4,7 @@ pragma solidity ^0.8.15;
 import {Owned} from "@solmate/auth/Owned.sol";
 import {VRFCoordinatorV2Interface} from "@chainlink/contracts/src/v0.8/interfaces/VRFCoordinatorV2Interface.sol";
 import {VRFConsumerBaseV2} from "@chainlink/contracts/src/v0.8/VRFConsumerBaseV2.sol";
+
 import "forge-std/console.sol";
 
 /**
@@ -265,57 +266,24 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
 
     /// @notice Execute the run when it is full.
     function finishMission(uint8 missionId, uint256 requestId) internal {
-        bytes32[] memory squadIds = squadIdsByMission[missionId];
+        bytes32[] storage currentSquadIds = squadIdsByMission[missionId];
         uint8[] memory randomness = requests[requestId].randomness;
 
-        uint256 squadsCount = squadIds.length;
+        uint256 squadsCount = currentSquadIds.length;
         bool finished = false;
-        for (uint8 r = 1; r <= 50 || finished; r++) {
-            uint8 scenaryId = requests[requestId].scenaryId;
+        for (uint8 r = 1; !finished; r++) {
+            uint8 scenaryId = getNextSceneryId(requestId);
 
-            if (requests[requestId].scenaryId <= incrementModifiers.length) {
-                requests[requestId].scenaryId += 1;
-            } else {
-                requests[requestId].scenaryId = 0;
-                scenaryId = requests[requestId].scenaryId;
-            }
-
-            uint8[ATTR_COUNT] memory incrementModifier = incrementModifiers[
-                scenaryId
-            ];
-            uint8[ATTR_COUNT] memory decrementModifier = decrementModifiers[
-                scenaryId
-            ];
-
-            for (uint i = 0; i < squadsCount; i++) {
-                bytes32 squadId = squadIds[i];
-                uint8[ATTR_COUNT] memory squadAttr = squads[squadId].attributes;
-                for (uint j = 0; j < ATTR_COUNT; j++) {
-                    squadAttr[j] += incrementModifier[j];
-                    if (squadAttr[j] > 10) {
-                        squadAttr[j] = 10;
-                    }
-
-                    if (decrementModifier[j] < squadAttr[j]) {
-                        squadAttr[j] -= decrementModifier[j];
-                    } else {
-                        squadAttr[j] = 0;
-                    }
-
-                    if (randomness[j] > squadAttr[j]) {
-                        squads[squadId].health -= 1;
-                        if (squads[squadId].health == 0) {
-                            removeSquadIdFromMission(missionId, squadId);
-                        }
-                    }
-                    if (squadIdsByMission[missionId].length == 1) {
-                        finished = true;
-                    }
+            for (uint i = 0; i < squadsCount && !finished; i++) {
+                bytes32 squadId = currentSquadIds[i];
+                processSquad(missionId, squadId, scenaryId, randomness);
+                if (currentSquadIds.length == 1) {
+                    finished = true;
                 }
             }
 
             if (finished) {
-                bytes32 winner = squadIdsByMission[missionId][0];
+                bytes32 winner = currentSquadIds[0];
                 delete squadIdsByMission[missionId];
                 missionInfoByMissionId[missionId].state = MissionState
                     .Completed;
@@ -326,10 +294,8 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
                     missionId,
                     scenaryId,
                     missionInfoByMissionId[missionId].round
-                    // squadIdsByMission[missionId]
                 );
             }
-            // suffle randomness and squadIds
         }
     }
 
@@ -453,5 +419,66 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
     ) internal pure returns (uint8) {
         uint256 adjustedRange = maxRange + 1;
         return uint8(value % adjustedRange);
+    }
+
+    function _adjustAttribute(
+        uint8 attribute,
+        uint8 increment,
+        uint8 decrement
+    ) private pure returns (uint8) {
+        attribute += increment;
+        if (attribute > 10) {
+            attribute = 10;
+        }
+
+        if (decrement < attribute) {
+            attribute -= decrement;
+        } else {
+            attribute = 0;
+        }
+
+        return attribute;
+    }
+
+    function processSquad(
+        uint8 missionId,
+        bytes32 squadId,
+        uint8 scenaryId,
+        uint8[] memory randomness
+    ) internal {
+        uint8[ATTR_COUNT] memory squadAttr = squads[squadId].attributes;
+        uint8[ATTR_COUNT] memory incrementModifier = incrementModifiers[
+            scenaryId
+        ];
+        uint8[ATTR_COUNT] memory decrementModifier = decrementModifiers[
+            scenaryId
+        ];
+
+        for (uint j = 0; j < ATTR_COUNT; j++) {
+            uint8 adjustedSquadAttr = _adjustAttribute(
+                squadAttr[j],
+                incrementModifier[j],
+                decrementModifier[j]
+            );
+
+            if (randomness[j] > adjustedSquadAttr) {
+                squads[squadId].health -= 1;
+                if (squads[squadId].health == 0) {
+                    removeSquadIdFromMission(missionId, squadId);
+                    return;
+                }
+            }
+        }
+    }
+
+    function getNextSceneryId(
+        uint256 requestId
+    ) internal returns (uint8 scenaryId) {
+        if (requests[requestId].scenaryId <= incrementModifiers.length) {
+            return requests[requestId].scenaryId++;
+        } else {
+            requests[requestId].scenaryId = 0;
+            return 0;
+        }
     }
 }
