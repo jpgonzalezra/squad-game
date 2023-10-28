@@ -273,7 +273,7 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
         for (uint8 r = 1; !finished; r++) {
             // console.log("--------------------");
             // console.log("Round", r);
-            uint8 scenaryId = getNextSceneryId(requestId);
+            uint8 scenaryId = resolveSceneryId(requestId);
             // console.log("ScenaryId", scenaryId);
             // console.log("--------------------");
             for (uint i = currentSquadIds.length; i > 0 && !finished; i--) {
@@ -309,9 +309,11 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
         if (requests[requestId].missionId == 0) {
             revert InvalidMissionId();
         }
-        requests[requestId].scenaryId = normalizeToRange(
-            randomWords[ATTR_COUNT],
-            incrementModifiers.length - 1
+        requests[requestId].scenaryId = resolveSceneryId(
+            normalizeToRange(
+                randomWords[ATTR_COUNT],
+                incrementModifiers.length - 1
+            )
         );
         for (uint256 i = 0; i < ATTR_COUNT; i++) {
             requests[requestId].randomness[i] = normalizeToRange(
@@ -391,9 +393,7 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
         ChainLinkRequest memory request = requests[requestId];
         return (
             request.randomness,
-            requests[requestId].scenaryId < incrementModifiers.length
-                ? requests[requestId].scenaryId
-                : 0,
+            requests[requestId].scenaryId,
             request.missionId
         );
     }
@@ -470,11 +470,13 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
         // console.log("Health: ", squads[squadId].health);
     }
 
-    function getNextSceneryId(
+    function resolveSceneryId(
         uint256 requestId
     ) internal returns (uint8 scenaryId) {
-        if (requests[requestId].scenaryId < incrementModifiers.length) {
-            return requests[requestId].scenaryId++;
+        uint8 currentSceneryId = requests[requestId].scenaryId;
+        if (currentSceneryId < incrementModifiers.length) {
+            requests[requestId].scenaryId += 1;
+            return currentSceneryId;
         } else {
             requests[requestId].scenaryId = 0;
             return 0;

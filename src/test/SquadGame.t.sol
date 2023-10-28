@@ -16,6 +16,8 @@ contract SquadGameTest is Test {
     event MissionStarted(uint8 missionId, uint256 requestId);
     event RoundPlayed(uint8 missionId, uint scenaryId, uint8 round);
     event RequestedLeaderboard(bytes32 indexed requestId, uint256 value);
+    event SquadEliminated(uint8 missionId, bytes32 winner);
+    event MissionFinished(uint8 missionId, bytes32 winner);
 
     LinkToken public linkToken;
     MockVRFCoordinatorV2 public vrfCoordinator;
@@ -345,7 +347,8 @@ contract SquadGameTest is Test {
         uint256 requestId = 1;
 
         // vm.expectEmit(true, true, true, true);
-        // emit RoundPlayed(missionId, 1, 1);
+        // emit SquadEliminated(missionId, players[1].squadId);
+        // emit MissionFinished(missionId, players[0].squadId);
         vrfCoordinator.fulfillRandomWords(requestId, address(game));
 
         uint256[] memory words = utils.getWords(requestId, game.NUMWORDS(), 10);
@@ -358,8 +361,7 @@ contract SquadGameTest is Test {
         for (uint8 i = 0; i < randomness.length; i++) {
             assertTrue(randomness[i] == words[i]);
         }
-        console.log(scenary);
-        assertTrue(scenary == 0);
+        assertTrue(scenary == 4);
         assertTrue(missionIdRequested == 1);
     }
 
