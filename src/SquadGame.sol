@@ -133,7 +133,7 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
         vrfSubscriptionId = _vrfSubscriptionId;
         COORDINATOR = VRFCoordinatorV2Interface(_vrfCoordinator);
 
-        _verifyScenaries(_incrementModifiers, _decrementModifiers);
+        verifyScenaries(_incrementModifiers, _decrementModifiers);
         incrementModifiers = _incrementModifiers;
         decrementModifiers = _decrementModifiers;
     }
@@ -149,7 +149,7 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
                 revert SquadAlreadyExist();
             }
         }
-        _verifyAttributes(_attributes);
+        verifyAttributes(_attributes);
 
         squadIdsByLider[msg.sender][squadId] = true;
         squads[squadId] = Squad({health: 20, attributes: _attributes});
@@ -336,7 +336,7 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
         );
     }
 
-    function _verifyAttributes(
+    function verifyAttributes(
         uint8[ATTR_COUNT] calldata _attributes
     ) internal pure {
         uint8 sum_of_attributes = 0;
@@ -353,7 +353,7 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
         }
     }
 
-    function _verifyScenaries(
+    function verifyScenaries(
         uint8[ATTR_COUNT][5] memory _incrementModifiers,
         uint8[ATTR_COUNT][5] memory _decrementModifiers
     ) internal pure {
@@ -386,10 +386,16 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
     }
 
     function getRequest(
-        uint256 missionId
+        uint256 requestId
     ) public view returns (uint8[] memory, uint8, uint8) {
-        ChainLinkRequest memory request = requests[missionId];
-        return (request.randomness, request.scenaryId, request.missionId);
+        ChainLinkRequest memory request = requests[requestId];
+        return (
+            request.randomness,
+            requests[requestId].scenaryId < incrementModifiers.length
+                ? requests[requestId].scenaryId
+                : 0,
+            request.missionId
+        );
     }
 
     function removeSquadIdFromMission(
@@ -420,7 +426,7 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
         return uint8(value % adjustedRange);
     }
 
-    function _adjustAttribute(
+    function adjustAttribute(
         uint8 attribute,
         uint8 increment,
         uint8 decrement
@@ -446,7 +452,7 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
         uint8[] memory randomness
     ) internal {
         for (uint j = 0; j < ATTR_COUNT; j++) {
-            uint8 adjustedSquadAttr = _adjustAttribute(
+            uint8 adjustedSquadAttr = adjustAttribute(
                 squads[squadId].attributes[j],
                 incrementModifiers[scenaryId][j],
                 decrementModifiers[scenaryId][j]
@@ -467,7 +473,7 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
     function getNextSceneryId(
         uint256 requestId
     ) internal returns (uint8 scenaryId) {
-        if (requests[requestId].scenaryId <= incrementModifiers.length) {
+        if (requests[requestId].scenaryId < incrementModifiers.length) {
             return requests[requestId].scenaryId++;
         } else {
             requests[requestId].scenaryId = 0;

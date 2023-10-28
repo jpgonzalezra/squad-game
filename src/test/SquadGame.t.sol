@@ -343,32 +343,24 @@ contract SquadGameTest is Test {
         game.startMission(missionId);
 
         uint256 requestId = 1;
-        
+
         // vm.expectEmit(true, true, true, true);
         // emit RoundPlayed(missionId, 1, 1);
         vrfCoordinator.fulfillRandomWords(requestId, address(game));
 
-        // uint256[] memory words = utils.getWords(requestId, game.NUMWORDS(), 10);
-        // (
-        //     uint8[] memory randomness,
-        //     uint8 scenary,
-        //     uint8 missionIdRequested
-        // ) = game.getRequest(missionId);
+        uint256[] memory words = utils.getWords(requestId, game.NUMWORDS(), 10);
+        (
+            uint8[] memory randomness,
+            uint8 scenary,
+            uint8 missionIdRequested
+        ) = game.getRequest(missionId);
 
-        // for (uint8 i = 0; i < randomness.length; i++) {
-        //     assertTrue(randomness[i] == words[i]);
-        // }
-        // assertTrue(scenary >= 0 && scenary <= 5);
-        // assertTrue(missionIdRequested == 1);
-
-        // (, uint8 health) = game.getSquad(players[0].squadId);
-        // console.log(health);
-        // assertTrue(health == 15);
-        // (, health) = game.getSquad(players[1].squadId);
-        // assertTrue(health == 15);
-        // (, health) = game.getSquad(players[2].squadId);
-        // (, health) = game.getSquad(players[3].squadId);
-        // (, health) = game.getSquad(players[4].squadId);
+        for (uint8 i = 0; i < randomness.length; i++) {
+            assertTrue(randomness[i] == words[i]);
+        }
+        console.log(scenary);
+        assertTrue(scenary == 0);
+        assertTrue(missionIdRequested == 1);
     }
 
     function joinMission(
