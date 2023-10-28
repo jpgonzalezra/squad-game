@@ -312,6 +312,7 @@ contract SquadGameTest is Test {
     }
 
     function testFinishMission() public {
+        vm.pauseGasMetering();
         uint8 missionId = 1;
         game.createMission(missionId, 5, 0.1 ether, 60);
 

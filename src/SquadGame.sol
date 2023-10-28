@@ -272,8 +272,11 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
         uint256 squadsCount = currentSquadIds.length;
         bool finished = false;
         for (uint8 r = 1; !finished; r++) {
+            console.log("--------------------");
+            console.log("Round", r);
             uint8 scenaryId = getNextSceneryId(requestId);
-
+            console.log("ScenaryId", scenaryId);
+            console.log("--------------------");
             for (uint i = 0; i < squadsCount && !finished; i++) {
                 bytes32 squadId = currentSquadIds[i];
                 processSquad(missionId, squadId, scenaryId, randomness);
@@ -446,19 +449,11 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
         uint8 scenaryId,
         uint8[] memory randomness
     ) internal {
-        uint8[ATTR_COUNT] memory squadAttr = squads[squadId].attributes;
-        uint8[ATTR_COUNT] memory incrementModifier = incrementModifiers[
-            scenaryId
-        ];
-        uint8[ATTR_COUNT] memory decrementModifier = decrementModifiers[
-            scenaryId
-        ];
-
         for (uint j = 0; j < ATTR_COUNT; j++) {
             uint8 adjustedSquadAttr = _adjustAttribute(
-                squadAttr[j],
-                incrementModifier[j],
-                decrementModifier[j]
+                squads[squadId].attributes[j],
+                incrementModifiers[scenaryId][j],
+                decrementModifiers[scenaryId][j]
             );
 
             if (randomness[j] > adjustedSquadAttr) {
@@ -469,6 +464,7 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
                 }
             }
         }
+        console.log("squads[squadId].health", squads[squadId].health);
     }
 
     function getNextSceneryId(
