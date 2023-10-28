@@ -18,6 +18,7 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
 
     // events
     event SquadCreated(address lider, bytes32 squadId, uint8[10] attributes);
+    event SquadEliminated(uint8 missionId, bytes32 squadId);
     event MissionCreated(uint8 missionId);
     event MissionJoined(bytes32 squadId, uint8 missionId);
     event MissionStarted(uint8 missionId, uint256 requestId);
@@ -61,7 +62,6 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
     error ParticipationFeeNotEnough();
     error NotOwnerOrGame();
     error InvalidMinParticipants();
-    error InvalidOperation();
 
     uint8[10][5] public incrementModifiers;
     uint8[10][5] public decrementModifiers;
@@ -409,6 +409,7 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
             squadIds[indexToRemove] = squadIds[squadIds.length - 1];
             squadIds.pop();
         }
+        emit SquadEliminated(missionId, squadId);
     }
 
     function normalizeToRange(
@@ -452,10 +453,11 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
             );
 
             if (randomness[j] > adjustedSquadAttr) {
-                squads[squadId].health -= 1;
-                if (squads[squadId].health == 0) {
+                if (squads[squadId].health > 1) {
+                    squads[squadId].health--;
+                } else {
                     removeSquadIdFromMission(missionId, squadId);
-                    return;
+                    break;
                 }
             }
         }
