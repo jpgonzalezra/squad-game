@@ -269,16 +269,15 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
         bytes32[] storage currentSquadIds = squadIdsByMission[missionId];
         uint8[] memory randomness = requests[requestId].randomness;
 
-        uint256 squadsCount = currentSquadIds.length;
         bool finished = false;
         for (uint8 r = 1; !finished; r++) {
-            console.log("--------------------");
-            console.log("Round", r);
+            // console.log("--------------------");
+            // console.log("Round", r);
             uint8 scenaryId = getNextSceneryId(requestId);
-            console.log("ScenaryId", scenaryId);
-            console.log("--------------------");
-            for (uint i = 0; i < squadsCount && !finished; i++) {
-                bytes32 squadId = currentSquadIds[i];
+            // console.log("ScenaryId", scenaryId);
+            // console.log("--------------------");
+            for (uint i = currentSquadIds.length; i > 0 && !finished; i--) {
+                bytes32 squadId = currentSquadIds[i - 1];
                 processSquad(missionId, squadId, scenaryId, randomness);
                 if (currentSquadIds.length == 1) {
                     finished = true;
@@ -398,10 +397,6 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
         bytes32 squadId
     ) internal {
         bytes32[] storage squadIds = squadIdsByMission[missionId];
-        if (squadIds.length == 1) {
-            revert InvalidOperation();
-        }
-
         uint256 indexToRemove = squadIds.length;
         for (uint256 i = 0; i < squadIds.length; i++) {
             if (squadIds[i] == squadId) {
@@ -464,7 +459,7 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
                 }
             }
         }
-        console.log("squads[squadId].health", squads[squadId].health);
+        // console.log("Health: ", squads[squadId].health);
     }
 
     function getNextSceneryId(
