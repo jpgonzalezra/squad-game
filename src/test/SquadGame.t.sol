@@ -346,9 +346,12 @@ contract SquadGameTest is Test {
 
         uint256 requestId = 1;
 
-        // vm.expectEmit(true, true, true, true);
-        // emit SquadEliminated(missionId, players[1].squadId);
-        // emit MissionFinished(missionId, players[0].squadId);
+        vm.expectEmit(true, true, true, true);
+        emit SquadEliminated(missionId, players[4].squadId);
+        emit SquadEliminated(missionId, players[3].squadId);
+        emit SquadEliminated(missionId, players[2].squadId);
+        emit SquadEliminated(missionId, players[1].squadId);
+        emit MissionFinished(missionId, players[0].squadId);
         vrfCoordinator.fulfillRandomWords(requestId, address(game));
 
         uint256[] memory words = utils.getWords(requestId, game.NUMWORDS(), 10);

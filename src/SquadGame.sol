@@ -8,9 +8,9 @@ import {VRFConsumerBaseV2} from "@chainlink/contracts/src/v0.8/VRFConsumerBaseV2
 import "forge-std/console.sol";
 
 /**
- * @title
+ * @title SquadGame
  * @author jpgonzalezra
- * @notice
+ * @notice SquadGame is a game where you can create a squad team and join a mission to fight against other squads.
  *
  */
 contract SquadGame is VRFConsumerBaseV2, Owned {
@@ -278,6 +278,7 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
             // console.log("--------------------");
             for (uint i = currentSquadIds.length; i > 0 && !finished; i--) {
                 bytes32 squadId = currentSquadIds[i - 1];
+                // console.log("Team: ", i);
                 processSquad(missionId, squadId, scenaryId, randomness);
                 if (currentSquadIds.length == 1) {
                     finished = true;
@@ -457,7 +458,6 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
                 incrementModifiers[scenaryId][j],
                 decrementModifiers[scenaryId][j]
             );
-
             if (randomness[j] > adjustedSquadAttr) {
                 if (squads[squadId].health > 1) {
                     squads[squadId].health--;

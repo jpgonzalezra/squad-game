@@ -112,7 +112,6 @@ contract Utilities is DSTest {
             attributes[8],
             attributes[9]
         );
-
         return
             SquadInfo({
                 lider: leader,
