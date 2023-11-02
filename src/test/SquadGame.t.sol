@@ -65,6 +65,7 @@ contract SquadGameTest is Test {
         emit MissionCreated(1);
         game.createMission(1, 8, 0.1 ether, 60);
         (
+            address winner,
             uint256 countdown,
             uint256 rewards,
             uint256 fee,
@@ -75,6 +76,7 @@ contract SquadGameTest is Test {
             uint8 round,
             SquadGame.MissionState state
         ) = game.missionInfoByMissionId(1);
+        assertTrue(winner == address(0));
         assertTrue(id == 1);
         assertTrue(round == 0);
         assertTrue(state == SquadGame.MissionState.Ready);
@@ -114,7 +116,8 @@ contract SquadGameTest is Test {
         emit SquadCreated(owner, squadId, attributes);
         game.createSquad(attributes);
 
-        assertTrue(game.squadIdsByLider(owner, squadId));
+        (address payable lider, ) = game.squads(squadId);
+        assertTrue(lider == owner);
 
         (attributes, ) = game.getSquad(squadId);
 
@@ -273,7 +276,7 @@ contract SquadGameTest is Test {
         assertTrue(squadInfoState == SquadGame.SquadState.Ready);
         vm.stopPrank();
 
-        (, , , , , , , , SquadGame.MissionState state) = game
+        (, , , , , , , , , SquadGame.MissionState state) = game
             .missionInfoByMissionId(anotherMissionId);
         assertTrue(state == SquadGame.MissionState.Ready);
 
@@ -291,7 +294,7 @@ contract SquadGameTest is Test {
         assertTrue(squadInfoState1 == SquadGame.SquadState.InMission);
         vm.stopPrank();
 
-        (, , , , , , , , SquadGame.MissionState state1) = game
+        (, , , , , , , , , SquadGame.MissionState state1) = game
             .missionInfoByMissionId(anotherMissionId);
         assertTrue(state1 == SquadGame.MissionState.InProgress);
 
@@ -355,16 +358,13 @@ contract SquadGameTest is Test {
         vrfCoordinator.fulfillRandomWords(requestId, address(game));
 
         uint256[] memory words = utils.getWords(requestId, game.NUMWORDS(), 10);
-        (
-            uint8[] memory randomness,
-            uint8 scenary,
-            uint8 missionIdRequested
-        ) = game.getRequest(missionId);
+        (uint8[] memory randomness, uint8 missionIdRequested) = game.getRequest(
+            missionId
+        );
 
         for (uint8 i = 0; i < randomness.length; i++) {
             assertTrue(randomness[i] == words[i]);
         }
-        assertTrue(scenary == 4);
         assertTrue(missionIdRequested == 1);
     }
 
