@@ -305,6 +305,7 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
                 if (currentSquadIds.length == 1) {
                     winner = squadId;
                     finished = true;
+                    squads[squadId].state = SquadState.NotReady;
                 }
             }
 
@@ -461,17 +462,19 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
         uint8 scenaryId,
         uint8[] memory randomness
     ) internal {
+        Squad storage squad = squads[squadId];
         for (uint j = 0; j < ATTR_COUNT; j++) {
             uint8 adjustedSquadAttr = adjustAttribute(
-                squads[squadId].attributes[j],
+                squad.attributes[j],
                 incrementModifiers[scenaryId][j],
                 decrementModifiers[scenaryId][j]
             );
             if (randomness[j] > adjustedSquadAttr) {
-                if (squads[squadId].health > 1) {
-                    squads[squadId].health--;
+                if (squad.health > 1) {
+                    squad.health--;
                 } else {
                     removeSquadIdFromMission(missionId, squadId);
+                    squad.state = SquadState.NotReady;
                     break;
                 }
             }
