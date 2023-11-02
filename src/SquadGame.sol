@@ -283,6 +283,37 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
         emit MissionStarted(missionId, requestId);
     }
 
+    /// @notice Requests randomness from a user-provided seed
+    /// @dev The VRF subscription must be active and sufficient LINK must be available
+    /// @return requestId The ID of the request
+    function requestRandomness() public returns (uint256 requestId) {
+        requestId = COORDINATOR.requestRandomWords(
+            vrfKeyHash,
+            vrfSubscriptionId,
+            REQUEST_CONFIRMATIONS,
+            CALLBACK_GASLIMIT,
+            NUMWORDS
+        );
+    }
+
+    function getSquad(
+        bytes32 squadId
+    ) external view returns (uint8[10] memory, uint8) {
+        Squad memory squad = squads[squadId];
+        return (squad.attributes, squad.health);
+    }
+
+    function getRequest(
+        uint256 requestId
+    ) external view returns (uint8[] memory, uint8) {
+        ChainLinkRequest memory request = requests[requestId];
+        return (request.randomness, request.missionId);
+    }
+
+    /**
+     * INTERNAL METHODS
+     */
+
     /// @notice Execute the run when it is full.
     function finishMission(uint8 missionId, uint256 requestId) internal {
         bytes32[] storage currentSquadIds = squadIdsByMission[missionId];
@@ -340,19 +371,6 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
         finishMission(requests[requestId].missionId, requestId);
     }
 
-    /// @notice Requests randomness from a user-provided seed
-    /// @dev The VRF subscription must be active and sufficient LINK must be available
-    /// @return requestId The ID of the request
-    function requestRandomness() public returns (uint256 requestId) {
-        requestId = COORDINATOR.requestRandomWords(
-            vrfKeyHash,
-            vrfSubscriptionId,
-            REQUEST_CONFIRMATIONS,
-            CALLBACK_GASLIMIT,
-            NUMWORDS
-        );
-    }
-
     function verifyAttributes(
         uint8[ATTR_COUNT] calldata _attributes
     ) internal pure {
@@ -395,20 +413,6 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
         }
     }
 
-    function getSquad(
-        bytes32 squadId
-    ) public view returns (uint8[10] memory, uint8) {
-        Squad memory squad = squads[squadId];
-        return (squad.attributes, squad.health);
-    }
-
-    function getRequest(
-        uint256 requestId
-    ) public view returns (uint8[] memory, uint8) {
-        ChainLinkRequest memory request = requests[requestId];
-        return (request.randomness, request.missionId);
-    }
-
     function removeSquadIdFromMission(
         uint8 missionId,
         bytes32 squadId
@@ -441,7 +445,7 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
         uint8 attribute,
         uint8 increment,
         uint8 decrement
-    ) private pure returns (uint8) {
+    ) internal pure returns (uint8) {
         attribute += increment;
         if (attribute > 10) {
             attribute = 10;
