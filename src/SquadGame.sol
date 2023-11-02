@@ -221,7 +221,7 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
     ) external payable onlyLider(squadId) {
         // If any mission is in a position to play a round, execute it regardless
 
-        Mission memory mission = missionInfoByMissionId[missionId];
+        Mission storage mission = missionInfoByMissionId[missionId];
         if (mission.state != MissionState.Ready) {
             revert MissionNotReady();
         }
@@ -235,7 +235,7 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
             mission.minParticipantsPerMission > mission.registered &&
             mission.countdown == 0
         ) {
-            missionInfoByMissionId[missionId].countdown = block.timestamp;
+            mission.countdown = block.timestamp;
         }
 
         squadStateByMissionId[missionId][squadId] = SquadState.Ready;
@@ -244,14 +244,14 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
             this.startMission(missionId);
         }
 
-        missionInfoByMissionId[missionId].rewards += msg.value;
-        missionInfoByMissionId[missionId].registered += 1;
+        mission.rewards += msg.value;
+        mission.registered += 1;
 
         squadIdsByMission[missionId].push(squadId);
 
         emit MissionJoined(squadId, missionId);
     }
-
+    
     /// @notice Execute the run when it is full.
     function startMission(uint8 missionId) public onlyOwnerOrGame {
         if (
@@ -263,7 +263,7 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
 
         bytes32[] memory squadIds = squadIdsByMission[missionId];
         uint256 squadIdsLenth = squadIds.length;
-        
+
         for (uint256 i = 0; i < squadIdsLenth; i++) {
             if (
                 squadStateByMissionId[missionId][squadIds[i]] !=
