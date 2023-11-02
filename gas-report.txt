@@ -1,0 +1,16 @@
+| src/SquadGame.sol:SquadGame contract |                 |       |        |        |         |
+|--------------------------------------|-----------------|-------|--------|--------|---------|
+| Deployment Cost                      | Deployment Size |       |        |        |         |
+| 2834894                              | 16846           |       |        |        |         |
+| Function Name                        | min             | avg   | median | max    | # calls |
+| NUMWORDS                             | 0               | 0     | 0      | 0      | 1       |
+| createMission                        | 0               | 39635 | 55701  | 55701  | 7       |
+| createSquad                          | 0               | 39023 | 44772  | 74956  | 16      |
+| getRequest                           | 0               | 0     | 0      | 0      | 1       |
+| getSquad                             | 4656            | 4656  | 4656   | 4656   | 1       |
+| joinMission                          | 0               | 47904 | 48780  | 143224 | 14      |
+| missionInfoByMissionId               | 1485            | 1485  | 1485   | 1485   | 3       |
+| rawFulfillRandomWords                | 0               | 0     | 0      | 0      | 1       |
+| squadStateByMissionId                | 741             | 741   | 741    | 741    | 4       |
+| squads                               | 571             | 571   | 571    | 571    | 1       |
+| startMission                         | 0               | 70121 | 93846  | 116518 | 3       |

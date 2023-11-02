@@ -116,7 +116,7 @@ contract SquadGameTest is Test {
         emit SquadCreated(owner, squadId, attributes);
         game.createSquad(attributes);
 
-        (address payable lider, ) = game.squads(squadId);
+        (address payable lider, , ) = game.squads(squadId);
         assertTrue(lider == owner);
 
         (attributes, ) = game.getSquad(squadId);
@@ -264,14 +264,16 @@ contract SquadGameTest is Test {
         uint8 anotherMissionId = 2;
         game.createMission(anotherMissionId, 1, 0.2 ether, 3600);
 
-        vm.startPrank(players[0].lider);
-        game.joinMission{value: 0.2 ether}(
-            players[0].squadId,
-            anotherMissionId
+        Utilities.SquadInfo memory player5 = utils.createAndSetupSquadInfo(
+            [8, 4, 2, 6, 1, 7, 3, 10, 6, 3],
+            address(15)
         );
-        SquadGame.SquadState squadInfoState = game.squadStateByMissionId(
-            anotherMissionId,
-            players[0].squadId
+        vm.startPrank(player5.lider);
+        utils.fundSpecificAddress(player5.lider);
+        game.createSquad(player5.attributes);
+        game.joinMission{value: 0.2 ether}(player5.squadId, anotherMissionId);
+        (, , SquadGame.SquadState squadInfoState) = game.squads(
+            player5.squadId
         );
         assertTrue(squadInfoState == SquadGame.SquadState.Ready);
         vm.stopPrank();
@@ -279,17 +281,28 @@ contract SquadGameTest is Test {
         (, , , , , , , , , SquadGame.MissionState state) = game
             .missionInfoByMissionId(anotherMissionId);
         assertTrue(state == SquadGame.MissionState.Ready);
+        
+        // should revert if the squad is playing in another mission
+        vm.expectRevert(SquadGame.SquadInMission.selector);
+        vm.startPrank(players[0].lider);
+        game.joinMission{value: 0.2 ether}(
+            players[0].squadId,
+            anotherMissionId
+        );
 
         vm.warp(block.timestamp + 3600);
 
-        vm.startPrank(players[1].lider);
-        game.joinMission{value: 0.2 ether}(
-            players[1].squadId,
-            anotherMissionId
+        Utilities.SquadInfo memory player6 = utils.createAndSetupSquadInfo(
+            [7, 8, 2, 6, 1, 7, 3, 10, 2, 4],
+            address(16)
         );
-        SquadGame.SquadState squadInfoState1 = game.squadStateByMissionId(
-            anotherMissionId,
-            players[1].squadId
+        vm.startPrank(player6.lider);
+        utils.fundSpecificAddress(player6.lider);
+        game.createSquad(player6.attributes);
+
+        game.joinMission{value: 0.2 ether}(player6.squadId, anotherMissionId);
+        (, , SquadGame.SquadState squadInfoState1) = game.squads(
+            player6.squadId
         );
         assertTrue(squadInfoState1 == SquadGame.SquadState.InMission);
         vm.stopPrank();
@@ -298,16 +311,10 @@ contract SquadGameTest is Test {
             .missionInfoByMissionId(anotherMissionId);
         assertTrue(state1 == SquadGame.MissionState.InProgress);
 
-        squadInfoState = game.squadStateByMissionId(
-            anotherMissionId,
-            players[0].squadId
-        );
+        (, , squadInfoState) = game.squads(player5.squadId);
         assertTrue(squadInfoState == SquadGame.SquadState.InMission);
 
-        squadInfoState1 = game.squadStateByMissionId(
-            anotherMissionId,
-            players[1].squadId
-        );
+        (, , squadInfoState1) = game.squads(player6.squadId);
         assertTrue(squadInfoState1 == SquadGame.SquadState.InMission);
 
         // should revert if squad is not the leader

@@ -51,8 +51,8 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
     error AttributesSumNot50();
     error SquadIsNotFormed();
     error SquadAlreadyExist();
+    error SquadInMission();
     error SquadNotReady();
-    error JoinMissionFailed();
     error MissionNotReady();
     error AlreadyMission();
     error InvalidMissionId();
@@ -69,7 +69,7 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
     uint8[10][5] public decrementModifiers;
 
     enum SquadState {
-        Unformed, // The squad has not yet been formed
+        NotReady, // The squad has not yet been formed
         Ready, // The squad is ready for the mission but it has not yet started
         InMission // The squad is currently in a mission
     }
@@ -98,14 +98,13 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
     struct Squad {
         address payable lider;
         uint8 health;
+        SquadState state;
         uint8[10] attributes;
     }
 
     uint32 private constant ATTR_COUNT = 10;
 
     // mapping storage
-    mapping(uint8 => mapping(bytes32 => SquadState))
-        public squadStateByMissionId;
     mapping(bytes32 => Squad) public squads;
     mapping(uint8 => bytes32[]) public squadIdsByMission;
     mapping(uint8 => Mission) public missionInfoByMissionId;
@@ -157,7 +156,8 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
         squads[squadId] = Squad({
             lider: payable(msg.sender),
             health: 20,
-            attributes: _attributes
+            attributes: _attributes,
+            state: SquadState.NotReady
         });
 
         emit SquadCreated(msg.sender, squadId, _attributes);
@@ -222,11 +222,12 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
         // If any mission is in a position to play a round, execute it regardless
 
         Mission storage mission = missionInfoByMissionId[missionId];
+        Squad storage squad = squads[squadId];
         if (mission.state != MissionState.Ready) {
             revert MissionNotReady();
         }
-        if (squadStateByMissionId[missionId][squadId] != SquadState.Unformed) {
-            revert JoinMissionFailed();
+        if (squad.state != SquadState.NotReady) {
+            revert SquadInMission();
         }
         if (msg.value < mission.fee) {
             revert ParticipationFeeNotEnough();
@@ -238,9 +239,9 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
             mission.countdown = block.timestamp;
         }
 
-        squadStateByMissionId[missionId][squadId] = SquadState.Ready;
+        squad.state = SquadState.Ready;
         if (block.timestamp >= mission.countdown + mission.countdownDelay) {
-            squadStateByMissionId[missionId][squadId] = SquadState.InMission;
+            squad.state = SquadState.InMission;
             this.startMission(missionId);
         }
 
@@ -251,7 +252,7 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
 
         emit MissionJoined(squadId, missionId);
     }
-    
+
     /// @notice Execute the run when it is full.
     function startMission(uint8 missionId) public onlyOwnerOrGame {
         if (
@@ -265,14 +266,10 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
         uint256 squadIdsLenth = squadIds.length;
 
         for (uint256 i = 0; i < squadIdsLenth; i++) {
-            if (
-                squadStateByMissionId[missionId][squadIds[i]] !=
-                SquadState.Ready
-            ) {
+            if (squads[squadIds[i]].state != SquadState.Ready) {
                 revert SquadNotReady();
             }
-            squadStateByMissionId[missionId][squadIds[i]] = SquadState
-                .InMission;
+            squads[squadIds[i]].state = SquadState.InMission;
         }
 
         uint256 requestId = requestRandomness();
@@ -290,6 +287,7 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
     function finishMission(uint8 missionId, uint256 requestId) internal {
         bytes32[] storage currentSquadIds = squadIdsByMission[missionId];
         uint8[] memory randomness = requests[requestId].randomness;
+        Mission storage mission = missionInfoByMissionId[missionId];
 
         bool finished = false;
         bytes32 winner;
@@ -312,17 +310,12 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
 
             if (finished) {
                 delete squadIdsByMission[missionId];
-                missionInfoByMissionId[missionId].state = MissionState
-                    .Completed;
-                missionInfoByMissionId[missionId].winner = squads[winner].lider;
+                mission.state = MissionState.Completed;
+                mission.winner = squads[winner].lider;
                 emit MissionFinished(missionId, winner);
             } else {
-                missionInfoByMissionId[missionId].round = r;
-                emit RoundPlayed(
-                    missionId,
-                    scenaryId,
-                    missionInfoByMissionId[missionId].round
-                );
+                mission.round = r;
+                emit RoundPlayed(missionId, scenaryId, mission.round);
             }
         }
     }
