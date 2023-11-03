@@ -23,14 +23,18 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
     event MissionCreated(uint8 missionId);
     event MissionJoined(bytes32 squadId, uint8 missionId);
     event MissionStarted(uint8 missionId, uint256 requestId);
-    event RoundPlayed(uint8 missionId, uint24 scenaryId, uint8 round);
+    event RoundPlayed(
+        uint8 missionId,
+        uint24 scenaryId,
+        uint8 round,
+        uint256 nextRequestId
+    );
     event RequestedLeaderboard(bytes32 indexed requestId, uint256 value);
     event RandomnessReceived(uint256 indexed requestId, uint8[] randomness);
     event RewardClaimed(uint8 missionId, address winner, uint256 amount);
 
     // chainlink constants and storage
     uint32 private constant CALLBACK_GASLIMIT = 200_000; // The gas limit for the random number callback
-    uint16 private constant REQUEST_CONFIRMATIONS = 3; // The number of blocks confirmed before the request is
 
     // considered fulfilled
     uint32 public constant NUMWORDS = 11; // The number of random words to request, pos 11 => scenario
@@ -41,7 +45,7 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
     struct ChainLinkRequest {
         uint8 missionId;
         uint8[] randomness;
-        uint32 scenaryId;
+        uint8 scenaryId;
     }
 
     // miscellaneous constants
@@ -64,6 +68,7 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
     error NotOwnerOrGame();
     error InvalidMinParticipants();
     error InvalidClaim();
+    error RoundNotReady();
 
     uint8[10][5] public incrementModifiers;
     uint8[10][5] public decrementModifiers;
@@ -195,7 +200,7 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
             registered: 0,
             countdown: 0,
             rewards: 0,
-            round: 0,
+            round: 1,
             countdownDelay: countdownDelay
         });
         emit MissionCreated(missionId);
@@ -274,7 +279,7 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
             squads[squadIds[i]].state = SquadState.InMission;
         }
 
-        uint256 requestId = requestRandomness();
+        uint256 requestId = requestRandomness(3);
         requests[requestId] = ChainLinkRequest({
             scenaryId: 0,
             missionId: missionId,
@@ -288,11 +293,13 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
     /// @notice Requests randomness from a user-provided seed
     /// @dev The VRF subscription must be active and sufficient LINK must be available
     /// @return requestId The ID of the request
-    function requestRandomness() public returns (uint256 requestId) {
+    function requestRandomness(
+        uint16 requestConfirmations
+    ) public returns (uint256 requestId) {
         requestId = COORDINATOR.requestRandomWords(
             vrfKeyHash,
             vrfSubscriptionId,
-            REQUEST_CONFIRMATIONS,
+            requestConfirmations,
             CALLBACK_GASLIMIT,
             NUMWORDS
         );
@@ -317,41 +324,45 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
      */
 
     /// @notice Execute the run when it is full.
-    function finishMission(uint8 missionId, uint256 requestId) internal {
-        bytes32[] storage currentSquadIds = squadIdsByMission[missionId];
-        uint8[] memory randomness = requests[requestId].randomness;
+    function playRound(uint8 missionId, uint256 requestId) internal {
         Mission storage mission = missions[missionId];
 
-        bool finished = false;
-        bytes32 winner;
-        for (uint8 r = 1; !finished; r++) {
-            // console.log("--------------------");
-            // console.log("Round", r);
-            uint8 scenaryId = resolveSceneryId(requestId);
-            // console.log("ScenaryId", scenaryId);
-            // console.log("--------------------");
-            for (uint i = currentSquadIds.length; i > 0 && !finished; i--) {
-                bytes32 squadId = currentSquadIds[i - 1];
-                // console.log("Team: ", i);
-                processSquad(missionId, squadId, scenaryId, randomness);
+        bytes32[] storage currentSquadIds = squadIdsByMission[missionId];
+        uint8[] memory randomness = requests[requestId].randomness;
 
-                if (currentSquadIds.length == 1) {
-                    winner = currentSquadIds[0];
-                    finished = true;
-                    squads[squadId].state = SquadState.NotReady;
-                }
-            }
+        uint8 scenaryId = requests[requestId].scenaryId;
+        for (uint i = currentSquadIds.length; i > 0; i--) {
+            bytes32 squadId = currentSquadIds[i - 1];
+            // console.log("Team: ", i);
+            processSquad(missionId, squadId, scenaryId, randomness);
 
-            if (finished) {
+            if (currentSquadIds.length == 1) {
+                bytes32 winner = currentSquadIds[0];
                 delete squadIdsByMission[missionId];
                 mission.state = MissionState.Completed;
                 mission.winner = squads[winner].lider;
+                squads[squadId].state = SquadState.NotReady;
                 emit MissionFinished(missionId, winner);
-            } else {
-                mission.round = r;
-                emit RoundPlayed(missionId, scenaryId, mission.round);
+                return;
             }
         }
+
+        uint16 seconds_per_block_approximately = (mission.countdownDelay *
+            mission.round) / 15;
+        if (seconds_per_block_approximately > 65535) {
+            seconds_per_block_approximately = 65535;
+        }
+        uint256 nextRequestId = requestRandomness(
+            seconds_per_block_approximately
+        );
+        requests[nextRequestId] = ChainLinkRequest({
+            scenaryId: 0,
+            missionId: missionId,
+            randomness: new uint8[](ATTR_COUNT)
+        });
+
+        mission.round += 1;
+        emit RoundPlayed(missionId, scenaryId, mission.round, nextRequestId);
     }
 
     /// @notice Callback function used by the VRF Coordinator to return the random number
@@ -359,10 +370,12 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
         uint256 requestId,
         uint256[] memory randomWords
     ) internal override {
-        if (requests[requestId].missionId == 0) {
-            revert InvalidMissionId();
-        }
-        requests[requestId].scenaryId = uint32(randomWords[ATTR_COUNT]);
+        requests[requestId].scenaryId = uint8(
+            normalizeToRange(
+                randomWords[ATTR_COUNT],
+                incrementModifiers.length - 1
+            )
+        );
         for (uint256 i = 0; i < ATTR_COUNT; i++) {
             requests[requestId].randomness[i] = normalizeToRange(
                 randomWords[i],
@@ -370,7 +383,7 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
             );
         }
         emit RandomnessReceived(requestId, requests[requestId].randomness);
-        finishMission(requests[requestId].missionId, requestId);
+        playRound(requests[requestId].missionId, requestId);
     }
 
     function verifyAttributes(
@@ -486,18 +499,5 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
             }
         }
         // console.log("Health: ", squads[squadId].health);
-    }
-
-    function resolveSceneryId(
-        uint256 requestId
-    ) internal returns (uint8 scenaryId) {
-        uint32 scenaryIds = requests[requestId].scenaryId;
-        if (scenaryIds == 0) {
-            requests[requestId].scenaryId = uint32(
-                requestId ^ (requestId << 13) ^ (requestId >> 7)
-            );
-        }
-        scenaryId = uint8((scenaryIds % 10) % incrementModifiers.length);
-        requests[requestId].scenaryId = scenaryIds / 10;
     }
 }

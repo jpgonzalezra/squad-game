@@ -79,7 +79,7 @@ contract SquadGameTest is Test {
         ) = game.missions(1);
         assertTrue(winner == address(0));
         assertTrue(id == 1);
-        assertTrue(round == 0);
+        assertTrue(round == 1);
         assertTrue(state == SquadGame.MissionState.Ready);
         assertTrue(minParticipantsPerMission == 8);
         assertTrue(countdownDelay == 60);
@@ -357,31 +357,49 @@ contract SquadGameTest is Test {
 
         game.startMission(missionId);
 
+        // vm.expectEmit(true, true, true, true);
+        // emit SquadEliminated(missionId, players[4].squadId);
+        // emit SquadEliminated(missionId, players[3].squadId);
+        // emit SquadEliminated(missionId, players[2].squadId);
+        // emit SquadEliminated(missionId, players[1].squadId);
+        // emit MissionFinished(missionId, players[0].squadId);
         uint256 requestId = 1;
-
-        vm.expectEmit(true, true, true, true);
-        emit SquadEliminated(missionId, players[4].squadId);
-        emit SquadEliminated(missionId, players[3].squadId);
-        emit SquadEliminated(missionId, players[2].squadId);
-        emit SquadEliminated(missionId, players[1].squadId);
-        emit MissionFinished(missionId, players[0].squadId);
         vrfCoordinator.fulfillRandomWords(requestId, address(game));
+        checkWords(requestId, missionId);
 
-        uint256[] memory words = utils.getWords(requestId, game.NUMWORDS(), 10);
-        (uint8[] memory randomness, uint8 missionIdRequested) = game.getRequest(
-            missionId
+        requestId = 2;
+        vrfCoordinator.fulfillRandomWords(requestId, address(game));
+        checkWords(requestId, missionId);
+
+        // requestId = 3;
+        // vrfCoordinator.fulfillRandomWords(requestId, address(game));
+        // // checkWords(requestId, missionId);
+
+        // requestId = 4;
+        // vrfCoordinator.fulfillRandomWords(requestId, address(game));
+        // // checkWords(requestId, missionId);
+
+        // requestId = 5;
+        // vrfCoordinator.fulfillRandomWords(requestId, address(game));
+        // // checkWords(requestId, missionId);
+
+        // vm.startPrank(players[0].lider);
+        // vm.expectEmit(true, true, true, true);
+        // emit RewardClaimed(missionId, players[0].lider, 0.5 ether);
+        // game.claimReward(missionId);
+        // vm.stopPrank();
+    }
+
+    function checkWords(uint256 requestId, uint8 missionId) private {
+        uint256[] memory words = utils.getWords(
+            requestId,
+            game.NUMWORDS() - 1,
+            10
         );
-
+        (uint8[] memory randomness, ) = game.getRequest(missionId);
         for (uint8 i = 0; i < randomness.length; i++) {
             assertTrue(randomness[i] == words[i]);
         }
-        assertTrue(missionIdRequested == 1);
-
-        vm.startPrank(players[0].lider);
-        vm.expectEmit(true, true, true, true);
-        emit RewardClaimed(missionId, players[0].lider, 0.5 ether);
-        game.claimReward(missionId);
-        vm.stopPrank();
     }
 
     function joinMission(

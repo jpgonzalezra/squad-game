@@ -39,12 +39,13 @@ contract Utilities is DSTest {
         uint256 requestId,
         uint256 numWords,
         uint256 range
-    ) public pure returns (uint256[] memory) {
+    ) public view returns (uint256[] memory) {
         uint256[] memory words = new uint256[](numWords);
         for (uint256 i = 0; i < numWords; i++) {
-            // console.log(
-            //     (uint256(keccak256(abi.encode(requestId, i))) % (range + 1))
-            // );
+            console.log(
+                "Words",
+                (uint256(keccak256(abi.encode(requestId, i))) % (range + 1))
+            );
             words[i] = (uint256(keccak256(abi.encode(requestId, i))) %
                 (range + 1));
         }
