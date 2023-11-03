@@ -104,10 +104,13 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
 
     uint32 private constant ATTR_COUNT = 10;
 
-    // mapping storage
+    // squad id => squad
     mapping(bytes32 => Squad) public squads;
+    // mission id => mission
+    mapping(uint8 => Mission) public missions;
+    // mission id => squad ids
     mapping(uint8 => bytes32[]) public squadIdsByMission;
-    mapping(uint8 => Mission) public missionInfoByMissionId;
+    // request id => request
     mapping(uint256 => ChainLinkRequest) private requests;
 
     modifier onlyOwnerOrGame() {
@@ -176,14 +179,14 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
         if (missionId == 0) {
             revert InvalidMissionId();
         }
-        if (missionInfoByMissionId[missionId].state != MissionState.NotReady) {
+        if (missions[missionId].state != MissionState.NotReady) {
             revert AlreadyMission();
         }
         if (countdownDelay > 604800) {
             revert InvalidCountdownDelay();
         }
 
-        missionInfoByMissionId[missionId] = Mission({
+        missions[missionId] = Mission({
             winner: payable(address(0)),
             id: missionId,
             minParticipantsPerMission: minParticipants,
@@ -199,7 +202,7 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
     }
 
     function claimReward(uint8 missionId) external {
-        Mission storage mission = missionInfoByMissionId[missionId];
+        Mission storage mission = missions[missionId];
         if (mission.winner == address(0) || mission.rewards == 0) {
             revert InvalidClaim();
         }
@@ -208,7 +211,6 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
         mission.rewards = 0;
 
         mission.winner.transfer(rewardsToTransfer);
-
         emit RewardClaimed(missionId, mission.winner, rewardsToTransfer);
     }
 
@@ -221,7 +223,7 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
     ) external payable onlyLider(squadId) {
         // If any mission is in a position to play a round, execute it regardless
 
-        Mission storage mission = missionInfoByMissionId[missionId];
+        Mission storage mission = missions[missionId];
         Squad storage squad = squads[squadId];
         if (mission.state != MissionState.Ready) {
             revert MissionNotReady();
@@ -257,7 +259,7 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
     function startMission(uint8 missionId) public onlyOwnerOrGame {
         if (
             squadIdsByMission[missionId].length <
-            missionInfoByMissionId[missionId].minParticipantsPerMission
+            missions[missionId].minParticipantsPerMission
         ) {
             revert NotEnoughParticipants();
         }
@@ -279,7 +281,7 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
             randomness: new uint8[](ATTR_COUNT)
         });
 
-        missionInfoByMissionId[missionId].state = MissionState.InProgress;
+        missions[missionId].state = MissionState.InProgress;
         emit MissionStarted(missionId, requestId);
     }
 
@@ -318,7 +320,7 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
     function finishMission(uint8 missionId, uint256 requestId) internal {
         bytes32[] storage currentSquadIds = squadIdsByMission[missionId];
         uint8[] memory randomness = requests[requestId].randomness;
-        Mission storage mission = missionInfoByMissionId[missionId];
+        Mission storage mission = missions[missionId];
 
         bool finished = false;
         bytes32 winner;
@@ -334,7 +336,7 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
                 processSquad(missionId, squadId, scenaryId, randomness);
 
                 if (currentSquadIds.length == 1) {
-                    winner = squadId;
+                    winner = currentSquadIds[0];
                     finished = true;
                     squads[squadId].state = SquadState.NotReady;
                 }

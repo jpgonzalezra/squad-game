@@ -18,6 +18,7 @@ contract SquadGameTest is Test {
     event RequestedLeaderboard(bytes32 indexed requestId, uint256 value);
     event SquadEliminated(uint8 missionId, bytes32 winner);
     event MissionFinished(uint8 missionId, bytes32 winner);
+    event RewardClaimed(uint8 missionId, address winner, uint256 amount);
 
     LinkToken public linkToken;
     MockVRFCoordinatorV2 public vrfCoordinator;
@@ -75,7 +76,7 @@ contract SquadGameTest is Test {
             uint8 registered,
             uint8 round,
             SquadGame.MissionState state
-        ) = game.missionInfoByMissionId(1);
+        ) = game.missions(1);
         assertTrue(winner == address(0));
         assertTrue(id == 1);
         assertTrue(round == 0);
@@ -278,10 +279,11 @@ contract SquadGameTest is Test {
         assertTrue(squadInfoState == SquadGame.SquadState.Ready);
         vm.stopPrank();
 
-        (, , , , , , , , , SquadGame.MissionState state) = game
-            .missionInfoByMissionId(anotherMissionId);
+        (, , , , , , , , , SquadGame.MissionState state) = game.missions(
+            anotherMissionId
+        );
         assertTrue(state == SquadGame.MissionState.Ready);
-        
+
         // should revert if the squad is playing in another mission
         vm.expectRevert(SquadGame.SquadInMission.selector);
         vm.startPrank(players[0].lider);
@@ -307,8 +309,9 @@ contract SquadGameTest is Test {
         assertTrue(squadInfoState1 == SquadGame.SquadState.InMission);
         vm.stopPrank();
 
-        (, , , , , , , , , SquadGame.MissionState state1) = game
-            .missionInfoByMissionId(anotherMissionId);
+        (, , , , , , , , , SquadGame.MissionState state1) = game.missions(
+            anotherMissionId
+        );
         assertTrue(state1 == SquadGame.MissionState.InProgress);
 
         (, , squadInfoState) = game.squads(player5.squadId);
@@ -373,6 +376,12 @@ contract SquadGameTest is Test {
             assertTrue(randomness[i] == words[i]);
         }
         assertTrue(missionIdRequested == 1);
+
+        vm.startPrank(players[0].lider);
+        vm.expectEmit(true, true, true, true);
+        emit RewardClaimed(missionId, players[0].lider, 0.5 ether);
+        game.claimReward(missionId);
+        vm.stopPrank();
     }
 
     function joinMission(
