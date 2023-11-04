@@ -69,6 +69,7 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
     error InvalidMinParticipants();
     error InvalidClaim();
     error RoundNotReady();
+    error MissionInProgress();
 
     uint8[10][5] public incrementModifiers;
     uint8[10][5] public decrementModifiers;
@@ -151,8 +152,6 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
     /// @notice Create a squad team with the given attributes.
     /// @param _attributes Attributes of the squad team.
     function createSquad(uint8[ATTR_COUNT] calldata _attributes) external {
-        // If any mission is in a position to play a round, execute it regardless
-
         bytes32 squadId = keccak256(abi.encodePacked(_attributes));
         for (uint256 i = 0; i < ATTR_COUNT; i++) {
             if (squads[squadId].health != 0) {
@@ -179,8 +178,6 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
         uint256 fee,
         uint16 countdownDelay
     ) external onlyOwner {
-        // If any mission is in a position to play a round, execute it regardless
-
         if (missionId == 0) {
             revert InvalidMissionId();
         }
@@ -226,8 +223,6 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
         bytes32 squadId,
         uint8 missionId
     ) external payable onlyLider(squadId) {
-        // If any mission is in a position to play a round, execute it regardless
-
         Mission storage mission = missions[missionId];
         Squad storage squad = squads[squadId];
         if (mission.state != MissionState.Ready) {
@@ -262,6 +257,9 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
 
     /// @notice Execute the run when it is full.
     function startMission(uint8 missionId) public onlyOwnerOrGame {
+        if (missions[missionId].state == MissionState.InProgress) {
+            revert MissionInProgress();
+        }
         if (
             squadIdsByMission[missionId].length <
             missions[missionId].minParticipantsPerMission
@@ -348,9 +346,6 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
 
         uint16 seconds_per_block_approximately = (mission.countdownDelay *
             mission.round) / 15;
-        if (seconds_per_block_approximately > 65535) {
-            seconds_per_block_approximately = 65535;
-        }
         uint256 nextRequestId = requestRandomness(
             seconds_per_block_approximately
         );
