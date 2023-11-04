@@ -5,7 +5,7 @@ import {Owned} from "@solmate/auth/Owned.sol";
 import {VRFCoordinatorV2Interface} from "@chainlink/contracts/src/v0.8/interfaces/VRFCoordinatorV2Interface.sol";
 import {VRFConsumerBaseV2} from "@chainlink/contracts/src/v0.8/VRFConsumerBaseV2.sol";
 
-import "forge-std/console.sol";
+// import "forge-std/console.sol";
 
 /**
  * @title SquadGame
@@ -333,7 +333,6 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
         uint8 scenaryId = requests[requestId].scenaryId;
         for (uint i = currentSquadIds.length; i > 0; i--) {
             bytes32 squadId = currentSquadIds[i - 1];
-            // console.log("Team: ", i);
             processSquad(missionId, squadId, scenaryId, randomness);
 
             if (currentSquadIds.length == 1) {
@@ -498,6 +497,5 @@ contract SquadGame is VRFConsumerBaseV2, Owned {
                 }
             }
         }
-        // console.log("Health: ", squads[squadId].health);
     }
 }

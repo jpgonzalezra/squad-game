@@ -7,7 +7,7 @@ import "./mocks/LinkToken.sol";
 import "forge-std/Test.sol";
 import {Vm} from "forge-std/Vm.sol";
 import {Utilities} from "./utils/Utilities.sol";
-import "forge-std/console.sol";
+// import "forge-std/console.sol";
 
 contract SquadGameTest is Test {
     event SquadCreated(address lider, bytes32 squadId, uint8[10] attributes);
@@ -357,46 +357,46 @@ contract SquadGameTest is Test {
 
         game.startMission(missionId);
 
-        // vm.expectEmit(true, true, true, true);
-        // emit SquadEliminated(missionId, players[4].squadId);
-        // emit SquadEliminated(missionId, players[3].squadId);
-        // emit SquadEliminated(missionId, players[2].squadId);
-        // emit SquadEliminated(missionId, players[1].squadId);
-        // emit MissionFinished(missionId, players[0].squadId);
         uint256 requestId = 1;
         vrfCoordinator.fulfillRandomWords(requestId, address(game));
-        checkWords(requestId, missionId);
+        checkWords(requestId);
 
         requestId = 2;
         vrfCoordinator.fulfillRandomWords(requestId, address(game));
-        checkWords(requestId, missionId);
+        checkWords(requestId);
 
-        // requestId = 3;
-        // vrfCoordinator.fulfillRandomWords(requestId, address(game));
-        // // checkWords(requestId, missionId);
+        requestId = 3;
+        vrfCoordinator.fulfillRandomWords(requestId, address(game));
+        checkWords(requestId);
 
-        // requestId = 4;
-        // vrfCoordinator.fulfillRandomWords(requestId, address(game));
-        // // checkWords(requestId, missionId);
+        requestId = 4;
+        vrfCoordinator.fulfillRandomWords(requestId, address(game));
+        checkWords(requestId);
 
-        // requestId = 5;
-        // vrfCoordinator.fulfillRandomWords(requestId, address(game));
-        // // checkWords(requestId, missionId);
+        requestId = 5;
+        vm.expectEmit(true, true, true, true);
+        emit SquadEliminated(missionId, players[4].squadId);
+        emit SquadEliminated(missionId, players[3].squadId);
+        emit SquadEliminated(missionId, players[2].squadId);
+        emit SquadEliminated(missionId, players[1].squadId);
+        emit MissionFinished(missionId, players[0].squadId);
+        vrfCoordinator.fulfillRandomWords(requestId, address(game));
+        checkWords(requestId);
 
-        // vm.startPrank(players[0].lider);
-        // vm.expectEmit(true, true, true, true);
-        // emit RewardClaimed(missionId, players[0].lider, 0.5 ether);
-        // game.claimReward(missionId);
-        // vm.stopPrank();
+        vm.startPrank(players[0].lider);
+        vm.expectEmit(true, true, true, true);
+        emit RewardClaimed(missionId, players[0].lider, 0.5 ether);
+        game.claimReward(missionId);
+        vm.stopPrank();
     }
 
-    function checkWords(uint256 requestId, uint8 missionId) private {
+    function checkWords(uint256 requestId) private {
         uint256[] memory words = utils.getWords(
             requestId,
             game.NUMWORDS() - 1,
             10
         );
-        (uint8[] memory randomness, ) = game.getRequest(missionId);
+        (uint8[] memory randomness, ) = game.getRequest(requestId);
         for (uint8 i = 0; i < randomness.length; i++) {
             assertTrue(randomness[i] == words[i]);
         }

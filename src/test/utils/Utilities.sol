@@ -4,7 +4,7 @@ pragma solidity >=0.8.0;
 import {DSTest} from "ds-test/test.sol";
 import {Vm} from "forge-std/Vm.sol";
 import "../../SquadGame.sol";
-import "forge-std/console.sol";
+// import "forge-std/console.sol";
 
 // common utilities for forge tests
 contract Utilities is DSTest {
@@ -39,13 +39,9 @@ contract Utilities is DSTest {
         uint256 requestId,
         uint256 numWords,
         uint256 range
-    ) public view returns (uint256[] memory) {
+    ) public pure returns (uint256[] memory) {
         uint256[] memory words = new uint256[](numWords);
         for (uint256 i = 0; i < numWords; i++) {
-            console.log(
-                "Words",
-                (uint256(keccak256(abi.encode(requestId, i))) % (range + 1))
-            );
             words[i] = (uint256(keccak256(abi.encode(requestId, i))) %
                 (range + 1));
         }
