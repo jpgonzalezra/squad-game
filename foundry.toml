@@ -5,6 +5,8 @@ libs = ['lib']
 gas_reports = ["SquadGame"]
 optimizer = true
 optimizer_runs = 20000
+solc = "0.8.21"
+
 
 fs_permissions = [{ access = "read", path = "lib/foundry-chainlink-toolkit/out"}]
 
