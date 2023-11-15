@@ -10,28 +10,28 @@ import {VRFConsumerBaseV2} from "@chainlink/contracts/src/v0.8/VRFConsumerBaseV2
 /**
  * @title LucidSwirl
  * @author jpgonzalezra, 0xhermit
- * @notice LucidSwirl is a game where you can create a host team and join a mission to fight against other squads.
+ * @notice LucidSwirl is a game where you can create a host team and join a spiral to fight against other hosts.
  *
  */
 contract LucidSwirl is VRFConsumerBaseV2, Owned {
     VRFCoordinatorV2Interface immutable COORDINATOR;
 
     // events
-    event MissionFinished(uint8 missionId, bytes32 winner);
-    event SquadCreated(address lider, bytes32 squadId, uint8[10] attributes);
-    event SquadEliminated(uint8 missionId, bytes32 squadId);
-    event MissionCreated(uint8 missionId);
-    event MissionJoined(bytes32 squadId, uint8 missionId);
-    event MissionStarted(uint8 missionId, uint256 requestId);
+    event SpiralFinished(uint8 spiralId, bytes32 winner);
+    event HostCreated(address pass, bytes32 hostId, uint8[10] attributes);
+    event HostEliminated(uint8 spiralId, bytes32 hostId);
+    event SpiralCreated(uint8 spiralId);
+    event SpiralJoined(bytes32 hostId, uint8 spiralId);
+    event SpiralStarted(uint8 spiralId, uint256 requestId);
     event RoundPlayed(
-        uint8 missionId,
+        uint8 spiralId,
         uint24 scenaryId,
         uint8 round,
         uint256 nextRequestId
     );
     event RequestedLeaderboard(bytes32 indexed requestId, uint256 value);
     event RandomnessReceived(uint256 indexed requestId, uint8[] randomness);
-    event RewardClaimed(uint8 missionId, address winner, uint256 amount);
+    event RewardClaimed(uint8 spiralId, address winner, uint256 amount);
 
     // chainlink constants and storage
     uint32 private constant CALLBACK_GASLIMIT = 200_000; // The gas limit for the random number callback
@@ -43,7 +43,7 @@ contract LucidSwirl is VRFConsumerBaseV2, Owned {
     uint64 private immutable vrfSubscriptionId; // The subscription ID for the VRF request
 
     struct ChainLinkRequest {
-        uint8 missionId;
+        uint8 spiralId;
         uint8[] randomness;
         uint8 scenaryId;
     }
@@ -53,13 +53,13 @@ contract LucidSwirl is VRFConsumerBaseV2, Owned {
     error InvalidScenary();
     error InvalidScenaries();
     error AttributesSumNot50();
-    error SquadIsNotFormed();
-    error SquadAlreadyExist();
-    error SquadInMission();
-    error SquadNotReady();
-    error MissionNotReady();
-    error AlreadyMission();
-    error InvalidMissionId();
+    error HostIsNotFormed();
+    error HostAlreadyExist();
+    error HostInSpiral();
+    error HostNotReady();
+    error SpiralNotReady();
+    error AlreadySpiral();
+    error InvalidSpiralId();
     error InvalidCountdownDelay();
     error NotEnoughParticipants();
     error UpgradeFeeNotMet();
@@ -69,42 +69,42 @@ contract LucidSwirl is VRFConsumerBaseV2, Owned {
     error InvalidMinParticipants();
     error InvalidClaim();
     error RoundNotReady();
-    error MissionInProgress();
+    error SpiralInProgress();
 
     uint8[10][5] public incrementModifiers;
     uint8[10][5] public decrementModifiers;
 
-    enum SquadState {
+    enum HostState {
         NotReady, // The host has not yet been formed
-        Ready, // The host is ready for the mission but it has not yet started
-        InMission // The host is currently in a mission
+        Ready, // The host is ready for the spiral but it has not yet started
+        InSpiral // The host is currently in a spiral
     }
 
-    // mission storage
-    enum MissionState {
-        NotReady, // Not ready for the mission
-        Ready, // Ready for the mission but it has not yet started
-        InProgress, // The mission is in progress
-        Completed // The mission has been completed
+    // spiral storage
+    enum SpiralState {
+        NotReady, // Not ready for the spiral
+        Ready, // Ready for the spiral but it has not yet started
+        InProgress, // The spiral is in progress
+        Completed // The spiral has been completed
     }
 
-    struct Mission {
+    struct Spiral {
         address payable winner;
         uint256 countdown;
         uint256 rewards;
         uint256 fee;
         uint16 countdownDelay; // 7 days as max countdown
         uint8 id;
-        uint8 minParticipantsPerMission;
+        uint8 minParticipantsPerSpiral;
         uint8 registered;
         uint8 round;
-        MissionState state;
+        SpiralState state;
     }
 
     struct Host {
-        address payable lider;
+        address payable pass;
         uint8 health;
-        SquadState state;
+        HostState state;
         uint8[10] attributes;
     }
     // attributes:
@@ -122,11 +122,11 @@ contract LucidSwirl is VRFConsumerBaseV2, Owned {
     uint32 private constant ATTR_COUNT = 10;
 
     // host id => host
-    mapping(bytes32 => Host) public squads;
-    // mission id => mission
-    mapping(uint8 => Mission) public missions;
-    // mission id => host ids
-    mapping(uint8 => bytes32[]) public squadIdsByMission;
+    mapping(bytes32 => Host) public hosts;
+    // spiral id => spiral
+    mapping(uint8 => Spiral) public spirals;
+    // spiral id => host ids
+    mapping(uint8 => bytes32[]) public hostIdsBySpiral;
     // request id => request
     mapping(uint256 => ChainLinkRequest) private requests;
 
@@ -136,8 +136,8 @@ contract LucidSwirl is VRFConsumerBaseV2, Owned {
         }
         _;
     }
-    modifier onlyLider(bytes32 squadId) {
-        if (squads[squadId].lider != msg.sender) {
+    modifier onlyLider(bytes32 hostId) {
+        if (hosts[hostId].pass != msg.sender) {
             revert NotALider();
         }
         _;
@@ -162,48 +162,48 @@ contract LucidSwirl is VRFConsumerBaseV2, Owned {
 
     /// @notice Create a host team with the given attributes.
     /// @param _attributes Attributes of the host team.
-    function createSquad(uint8[ATTR_COUNT] calldata _attributes) external {
-        bytes32 squadId = keccak256(abi.encodePacked(_attributes));
+    function createHost(uint8[ATTR_COUNT] calldata _attributes) external {
+        bytes32 hostId = keccak256(abi.encodePacked(_attributes));
         for (uint256 i = 0; i < ATTR_COUNT; i++) {
-            if (squads[squadId].health != 0) {
-                revert SquadAlreadyExist();
+            if (hosts[hostId].health != 0) {
+                revert HostAlreadyExist();
             }
         }
         verifyAttributes(_attributes);
 
-        squads[squadId] = Host({
-            lider: payable(msg.sender),
+        hosts[hostId] = Host({
+            pass: payable(msg.sender),
             health: 20,
             attributes: _attributes,
-            state: SquadState.NotReady
+            state: HostState.NotReady
         });
 
-        emit SquadCreated(msg.sender, squadId, _attributes);
+        emit HostCreated(msg.sender, hostId, _attributes);
     }
 
-    /// @notice Create a mission with the given id.
-    /// @param missionId Id of the mission.
-    function createMission(
-        uint8 missionId,
+    /// @notice Create a spiral with the given id.
+    /// @param spiralId Id of the spiral.
+    function createSpiral(
+        uint8 spiralId,
         uint8 minParticipants,
         uint256 fee,
         uint16 countdownDelay
     ) external onlyOwner {
-        if (missionId == 0) {
-            revert InvalidMissionId();
+        if (spiralId == 0) {
+            revert InvalidSpiralId();
         }
-        if (missions[missionId].state != MissionState.NotReady) {
-            revert AlreadyMission();
+        if (spirals[spiralId].state != SpiralState.NotReady) {
+            revert AlreadySpiral();
         }
         if (countdownDelay > 604800) {
             revert InvalidCountdownDelay();
         }
 
-        missions[missionId] = Mission({
+        spirals[spiralId] = Spiral({
             winner: payable(address(0)),
-            id: missionId,
-            minParticipantsPerMission: minParticipants,
-            state: MissionState.Ready,
+            id: spiralId,
+            minParticipantsPerSpiral: minParticipants,
+            state: SpiralState.Ready,
             fee: fee,
             registered: 0,
             countdown: 0,
@@ -211,92 +211,92 @@ contract LucidSwirl is VRFConsumerBaseV2, Owned {
             round: 1,
             countdownDelay: countdownDelay
         });
-        emit MissionCreated(missionId);
+        emit SpiralCreated(spiralId);
     }
 
-    function claimReward(uint8 missionId) external {
-        Mission storage mission = missions[missionId];
-        if (mission.winner == address(0) || mission.rewards == 0) {
+    function claimReward(uint8 spiralId) external {
+        Spiral storage spiral = spirals[spiralId];
+        if (spiral.winner == address(0) || spiral.rewards == 0) {
             revert InvalidClaim();
         }
 
-        uint256 rewardsToTransfer = mission.rewards;
-        mission.rewards = 0;
+        uint256 rewardsToTransfer = spiral.rewards;
+        spiral.rewards = 0;
 
-        mission.winner.transfer(rewardsToTransfer);
-        emit RewardClaimed(missionId, mission.winner, rewardsToTransfer);
+        spiral.winner.transfer(rewardsToTransfer);
+        emit RewardClaimed(spiralId, spiral.winner, rewardsToTransfer);
     }
 
-    /// @notice Join the queue for the upcoming mission.
-    /// @param squadId Id of the host team.
-    /// @param missionId Id of the mission.
-    function joinMission(
-        bytes32 squadId,
-        uint8 missionId
-    ) external payable onlyLider(squadId) {
-        Mission storage mission = missions[missionId];
-        Host storage host = squads[squadId];
-        if (mission.state != MissionState.Ready) {
-            revert MissionNotReady();
+    /// @notice Join the queue for the upcoming spiral.
+    /// @param hostId Id of the host team.
+    /// @param spiralId Id of the spiral.
+    function joinSpiral(
+        bytes32 hostId,
+        uint8 spiralId
+    ) external payable onlyLider(hostId) {
+        Spiral storage spiral = spirals[spiralId];
+        Host storage host = hosts[hostId];
+        if (spiral.state != SpiralState.Ready) {
+            revert SpiralNotReady();
         }
-        if (host.state != SquadState.NotReady) {
-            revert SquadInMission();
+        if (host.state != HostState.NotReady) {
+            revert HostInSpiral();
         }
-        if (msg.value < mission.fee) {
+        if (msg.value < spiral.fee) {
             revert ParticipationFeeNotEnough();
         }
         if (
-            mission.minParticipantsPerMission > mission.registered &&
-            mission.countdown == 0
+            spiral.minParticipantsPerSpiral > spiral.registered &&
+            spiral.countdown == 0
         ) {
-            mission.countdown = block.timestamp;
+            spiral.countdown = block.timestamp;
         }
 
-        host.state = SquadState.Ready;
-        if (block.timestamp >= mission.countdown + mission.countdownDelay) {
-            host.state = SquadState.InMission;
-            this.startMission(missionId);
+        host.state = HostState.Ready;
+        if (block.timestamp >= spiral.countdown + spiral.countdownDelay) {
+            host.state = HostState.InSpiral;
+            this.startSpiral(spiralId);
         }
 
-        mission.rewards += msg.value;
-        mission.registered += 1;
+        spiral.rewards += msg.value;
+        spiral.registered += 1;
 
-        squadIdsByMission[missionId].push(squadId);
+        hostIdsBySpiral[spiralId].push(hostId);
 
-        emit MissionJoined(squadId, missionId);
+        emit SpiralJoined(hostId, spiralId);
     }
 
     /// @notice Execute the run when it is full.
-    function startMission(uint8 missionId) public onlyOwnerOrGame {
-        if (missions[missionId].state == MissionState.InProgress) {
-            revert MissionInProgress();
+    function startSpiral(uint8 spiralId) public onlyOwnerOrGame {
+        if (spirals[spiralId].state == SpiralState.InProgress) {
+            revert SpiralInProgress();
         }
         if (
-            squadIdsByMission[missionId].length <
-            missions[missionId].minParticipantsPerMission
+            hostIdsBySpiral[spiralId].length <
+            spirals[spiralId].minParticipantsPerSpiral
         ) {
             revert NotEnoughParticipants();
         }
 
-        bytes32[] memory squadIds = squadIdsByMission[missionId];
-        uint256 squadIdsLenth = squadIds.length;
+        bytes32[] memory hostIds = hostIdsBySpiral[spiralId];
+        uint256 hostIdsLenth = hostIds.length;
 
-        for (uint256 i = 0; i < squadIdsLenth; i++) {
-            if (squads[squadIds[i]].state != SquadState.Ready) {
-                revert SquadNotReady();
+        for (uint256 i = 0; i < hostIdsLenth; i++) {
+            if (hosts[hostIds[i]].state != HostState.Ready) {
+                revert HostNotReady();
             }
-            squads[squadIds[i]].state = SquadState.InMission;
+            hosts[hostIds[i]].state = HostState.InSpiral;
         }
 
         uint256 requestId = requestRandomness(3);
         requests[requestId] = ChainLinkRequest({
             scenaryId: 0,
-            missionId: missionId,
+            spiralId: spiralId,
             randomness: new uint8[](ATTR_COUNT)
         });
 
-        missions[missionId].state = MissionState.InProgress;
-        emit MissionStarted(missionId, requestId);
+        spirals[spiralId].state = SpiralState.InProgress;
+        emit SpiralStarted(spiralId, requestId);
     }
 
     /// @notice Requests randomness from a user-provided seed
@@ -314,10 +314,10 @@ contract LucidSwirl is VRFConsumerBaseV2, Owned {
         );
     }
 
-    function getSquad(
-        bytes32 squadId
+    function getHost(
+        bytes32 hostId
     ) external view returns (uint8[10] memory, uint8) {
-        Host memory host = squads[squadId];
+        Host memory host = hosts[hostId];
         return (host.attributes, host.health);
     }
 
@@ -325,7 +325,7 @@ contract LucidSwirl is VRFConsumerBaseV2, Owned {
         uint256 requestId
     ) external view returns (uint8[] memory, uint8) {
         ChainLinkRequest memory request = requests[requestId];
-        return (request.randomness, request.missionId);
+        return (request.randomness, request.spiralId);
     }
 
     /**
@@ -333,41 +333,41 @@ contract LucidSwirl is VRFConsumerBaseV2, Owned {
      */
 
     /// @notice Execute the run when it is full.
-    function playRound(uint8 missionId, uint256 requestId) internal {
-        Mission storage mission = missions[missionId];
+    function playRound(uint8 spiralId, uint256 requestId) internal {
+        Spiral storage spiral = spirals[spiralId];
 
-        bytes32[] storage currentSquadIds = squadIdsByMission[missionId];
+        bytes32[] storage currentHostIds = hostIdsBySpiral[spiralId];
         uint8[] memory randomness = requests[requestId].randomness;
 
         uint8 scenaryId = requests[requestId].scenaryId;
-        for (uint i = currentSquadIds.length; i > 0; i--) {
-            bytes32 squadId = currentSquadIds[i - 1];
-            processSquad(missionId, squadId, scenaryId, randomness);
+        for (uint i = currentHostIds.length; i > 0; i--) {
+            bytes32 hostId = currentHostIds[i - 1];
+            processHost(spiralId, hostId, scenaryId, randomness);
 
-            if (currentSquadIds.length == 1) {
-                bytes32 winner = currentSquadIds[0];
-                delete squadIdsByMission[missionId];
-                mission.state = MissionState.Completed;
-                mission.winner = squads[winner].lider;
-                squads[squadId].state = SquadState.NotReady;
-                emit MissionFinished(missionId, winner);
+            if (currentHostIds.length == 1) {
+                bytes32 winner = currentHostIds[0];
+                delete hostIdsBySpiral[spiralId];
+                spiral.state = SpiralState.Completed;
+                spiral.winner = hosts[winner].pass;
+                hosts[hostId].state = HostState.NotReady;
+                emit SpiralFinished(spiralId, winner);
                 return;
             }
         }
 
-        uint16 seconds_per_block_approximately = (mission.countdownDelay *
-            mission.round) / 15;
+        uint16 seconds_per_block_approximately = (spiral.countdownDelay *
+            spiral.round) / 15;
         uint256 nextRequestId = requestRandomness(
             seconds_per_block_approximately
         );
         requests[nextRequestId] = ChainLinkRequest({
             scenaryId: 0,
-            missionId: missionId,
+            spiralId: spiralId,
             randomness: new uint8[](ATTR_COUNT)
         });
 
-        mission.round += 1;
-        emit RoundPlayed(missionId, scenaryId, mission.round, nextRequestId);
+        spiral.round += 1;
+        emit RoundPlayed(spiralId, scenaryId, spiral.round, nextRequestId);
     }
 
     /// @notice Callback function used by the VRF Coordinator to return the random number
@@ -388,7 +388,7 @@ contract LucidSwirl is VRFConsumerBaseV2, Owned {
             );
         }
         emit RandomnessReceived(requestId, requests[requestId].randomness);
-        playRound(requests[requestId].missionId, requestId);
+        playRound(requests[requestId].spiralId, requestId);
     }
 
     function verifyAttributes(
@@ -433,24 +433,24 @@ contract LucidSwirl is VRFConsumerBaseV2, Owned {
         }
     }
 
-    function removeSquadIdFromMission(
-        uint8 missionId,
-        bytes32 squadId
+    function removeHostIdFromSpiral(
+        uint8 spiralId,
+        bytes32 hostId
     ) internal {
-        bytes32[] storage squadIds = squadIdsByMission[missionId];
-        uint256 indexToRemove = squadIds.length;
-        for (uint256 i = 0; i < squadIds.length; i++) {
-            if (squadIds[i] == squadId) {
+        bytes32[] storage hostIds = hostIdsBySpiral[spiralId];
+        uint256 indexToRemove = hostIds.length;
+        for (uint256 i = 0; i < hostIds.length; i++) {
+            if (hostIds[i] == hostId) {
                 indexToRemove = i;
                 break;
             }
         }
 
-        if (indexToRemove < squadIds.length) {
-            squadIds[indexToRemove] = squadIds[squadIds.length - 1];
-            squadIds.pop();
+        if (indexToRemove < hostIds.length) {
+            hostIds[indexToRemove] = hostIds[hostIds.length - 1];
+            hostIds.pop();
         }
-        emit SquadEliminated(missionId, squadId);
+        emit HostEliminated(spiralId, hostId);
     }
 
     function normalizeToRange(
@@ -480,25 +480,25 @@ contract LucidSwirl is VRFConsumerBaseV2, Owned {
         return attribute;
     }
 
-    function processSquad(
-        uint8 missionId,
-        bytes32 squadId,
+    function processHost(
+        uint8 spiralId,
+        bytes32 hostId,
         uint8 scenaryId,
         uint8[] memory randomness
     ) internal {
-        Host storage host = squads[squadId];
+        Host storage host = hosts[hostId];
         for (uint j = 0; j < ATTR_COUNT; j++) {
-            uint8 adjustedSquadAttr = adjustAttribute(
+            uint8 adjustedHostAttr = adjustAttribute(
                 host.attributes[j],
                 incrementModifiers[scenaryId][j],
                 decrementModifiers[scenaryId][j]
             );
-            if (randomness[j] > adjustedSquadAttr) {
+            if (randomness[j] > adjustedHostAttr) {
                 if (host.health > 1) {
                     host.health--;
                 } else {
-                    removeSquadIdFromMission(missionId, squadId);
-                    host.state = SquadState.NotReady;
+                    removeHostIdFromSpiral(spiralId, hostId);
+                    host.state = HostState.NotReady;
                     break;
                 }
             }

@@ -10,15 +10,15 @@ import {Utilities} from "./utils/Utilities.sol";
 // import "forge-std/console.sol";
 
 contract LucidSwirlTest is Test {
-    event SquadCreated(address lider, bytes32 squadId, uint8[10] attributes);
-    event MissionCreated(uint8 missionId);
-    event MissionJoined(bytes32 squadId, uint8 missionId);
-    event MissionStarted(uint8 missionId, uint256 requestId);
-    event RoundPlayed(uint8 missionId, uint scenaryId, uint8 round);
+    event HostCreated(address pass, bytes32 hostId, uint8[10] attributes);
+    event SpiralCreated(uint8 spiralId);
+    event SpiralJoined(bytes32 hostId, uint8 spiralId);
+    event SpiralStarted(uint8 spiralId, uint256 requestId);
+    event RoundPlayed(uint8 spiralId, uint scenaryId, uint8 round);
     event RequestedLeaderboard(bytes32 indexed requestId, uint256 value);
-    event SquadEliminated(uint8 missionId, bytes32 winner);
-    event MissionFinished(uint8 missionId, bytes32 winner);
-    event RewardClaimed(uint8 missionId, address winner, uint256 amount);
+    event HostEliminated(uint8 spiralId, bytes32 winner);
+    event SpiralFinished(uint8 spiralId, bytes32 winner);
+    event RewardClaimed(uint8 spiralId, address winner, uint256 amount);
 
     LinkToken public linkToken;
     MockVRFCoordinatorV2 public vrfCoordinator;
@@ -61,10 +61,10 @@ contract LucidSwirlTest is Test {
         vrfCoordinator.addConsumer(subId, address(game));
     }
 
-    function testCreateMission() public {
+    function testCreateSpiral() public {
         vm.expectEmit(true, true, true, true);
-        emit MissionCreated(1);
-        game.createMission(1, 8, 0.1 ether, 60);
+        emit SpiralCreated(1);
+        game.createSpiral(1, 8, 0.1 ether, 60);
         (
             address winner,
             uint256 countdown,
@@ -72,16 +72,16 @@ contract LucidSwirlTest is Test {
             uint256 fee,
             uint16 countdownDelay,
             uint8 id,
-            uint8 minParticipantsPerMission,
+            uint8 minParticipantsPerSpiral,
             uint8 registered,
             uint8 round,
-            LucidSwirl.MissionState state
-        ) = game.missions(1);
+            LucidSwirl.SpiralState state
+        ) = game.spirals(1);
         assertTrue(winner == address(0));
         assertTrue(id == 1);
         assertTrue(round == 1);
-        assertTrue(state == LucidSwirl.MissionState.Ready);
-        assertTrue(minParticipantsPerMission == 8);
+        assertTrue(state == LucidSwirl.SpiralState.Ready);
+        assertTrue(minParticipantsPerSpiral == 8);
         assertTrue(countdownDelay == 60);
         assertTrue(countdown == 0);
         assertTrue(registered == 0);
@@ -89,18 +89,18 @@ contract LucidSwirlTest is Test {
         assertTrue(fee == 0.1 ether);
     }
 
-    function testAlreadyMission() public {
-        uint8 missionId = 1;
-        game.createMission(missionId, 1, 0.1 ether, 60);
-        vm.expectRevert(LucidSwirl.AlreadyMission.selector);
-        game.createMission(missionId, 1, 0.1 ether, 60);
+    function testAlreadySpiral() public {
+        uint8 spiralId = 1;
+        game.createSpiral(spiralId, 1, 0.1 ether, 60);
+        vm.expectRevert(LucidSwirl.AlreadySpiral.selector);
+        game.createSpiral(spiralId, 1, 0.1 ether, 60);
     }
 
-    function testCreateSquad() public {
+    function testCreateHost() public {
         // create host successfully
         address owner = address(1);
         vm.startPrank(owner);
-        (bytes32 squadId, uint8[10] memory attributes) = utils.createSquad(
+        (bytes32 hostId, uint8[10] memory attributes) = utils.createHost(
             8,
             5,
             3,
@@ -114,13 +114,13 @@ contract LucidSwirlTest is Test {
         );
 
         vm.expectEmit(true, true, true, true);
-        emit SquadCreated(owner, squadId, attributes);
-        game.createSquad(attributes);
+        emit HostCreated(owner, hostId, attributes);
+        game.createHost(attributes);
 
-        (address payable lider, , ) = game.squads(squadId);
-        assertTrue(lider == owner);
+        (address payable pass, , ) = game.hosts(hostId);
+        assertTrue(pass == owner);
 
-        (attributes, ) = game.getSquad(squadId);
+        (attributes, ) = game.getHost(hostId);
 
         assertTrue(attributes[0] == 8);
         assertTrue(attributes[1] == 5);
@@ -134,11 +134,11 @@ contract LucidSwirlTest is Test {
         assertTrue(attributes[9] == 2);
 
         // should revert if host already exists
-        vm.expectRevert(LucidSwirl.SquadAlreadyExist.selector);
-        game.createSquad(attributes);
+        vm.expectRevert(LucidSwirl.HostAlreadyExist.selector);
+        game.createHost(attributes);
 
         // should revert if attributes are invalid
-        (, uint8[10] memory invalidAttribute) = utils.createSquad(
+        (, uint8[10] memory invalidAttribute) = utils.createHost(
             0,
             5,
             3,
@@ -152,10 +152,10 @@ contract LucidSwirlTest is Test {
         );
 
         vm.expectRevert(LucidSwirl.InvalidAttribute.selector);
-        game.createSquad(invalidAttribute);
+        game.createHost(invalidAttribute);
 
         // should revert if attributes are invalid, the sum of attributes should be 50
-        (, uint8[10] memory invalidAttributes) = utils.createSquad(
+        (, uint8[10] memory invalidAttributes) = utils.createHost(
             7,
             5,
             3,
@@ -168,20 +168,20 @@ contract LucidSwirlTest is Test {
             2
         );
         vm.expectRevert(LucidSwirl.AttributesSumNot50.selector);
-        game.createSquad(invalidAttributes);
+        game.createHost(invalidAttributes);
 
         vm.stopPrank();
     }
 
-    function testJoinMission() public {
-        uint8 missionId = 1;
-        game.createMission(missionId, 5, 0.1 ether, 60);
+    function testJoinSpiral() public {
+        uint8 spiralId = 1;
+        game.createSpiral(spiralId, 5, 0.1 ether, 60);
 
         address alice = address(2);
         utils.fundSpecificAddress(alice);
 
         vm.startPrank(alice);
-        (bytes32 squadId, uint8[10] memory attributes) = utils.createSquad(
+        (bytes32 hostId, uint8[10] memory attributes) = utils.createHost(
             8,
             5,
             3,
@@ -193,18 +193,18 @@ contract LucidSwirlTest is Test {
             2,
             2
         );
-        game.createSquad(attributes);
+        game.createHost(attributes);
 
         vm.expectEmit(true, true, true, true);
-        emit MissionJoined(squadId, missionId);
-        game.joinMission{value: 0.1 ether}(squadId, missionId);
+        emit SpiralJoined(hostId, spiralId);
+        game.joinSpiral{value: 0.1 ether}(hostId, spiralId);
         vm.stopPrank();
 
-        // should revert if host is not the leader
+        // should revert if host is not the pass
         address bob = address(3);
         utils.fundSpecificAddress(bob);
         vm.startPrank(bob);
-        (, uint8[10] memory attributes1) = utils.createSquad(
+        (, uint8[10] memory attributes1) = utils.createHost(
             8,
             5,
             3,
@@ -216,13 +216,13 @@ contract LucidSwirlTest is Test {
             3,
             1
         );
-        game.createSquad(attributes1);
+        game.createHost(attributes1);
 
         vm.stopPrank();
         vm.expectRevert(LucidSwirl.NotALider.selector);
-        game.joinMission{value: 0.1 ether}(squadId, missionId);
+        game.joinSpiral{value: 0.1 ether}(hostId, spiralId);
 
-        // should revert if the mission is not ready
+        // should revert if the spiral is not ready
         // TODO:
 
         // should revert if host is not formed
@@ -232,130 +232,130 @@ contract LucidSwirlTest is Test {
         // TODO:
     }
 
-    function testStartMission() public {
-        uint8 missionId = 1;
-        game.createMission(missionId, 5, 0.1 ether, 60);
+    function testStartSpiral() public {
+        uint8 spiralId = 1;
+        game.createSpiral(spiralId, 5, 0.1 ether, 60);
 
-        Utilities.SquadInfo[] memory players = new Utilities.SquadInfo[](5);
-        players[0] = utils.createAndSetupSquadInfo(
+        Utilities.HostInfo[] memory players = new Utilities.HostInfo[](5);
+        players[0] = utils.createAndSetupHostInfo(
             [8, 5, 3, 7, 1, 9, 3, 10, 2, 2],
             address(10)
         );
-        players[1] = utils.createAndSetupSquadInfo(
+        players[1] = utils.createAndSetupHostInfo(
             [6, 7, 3, 7, 1, 9, 3, 10, 2, 2],
             address(11)
         );
-        players[2] = utils.createAndSetupSquadInfo(
+        players[2] = utils.createAndSetupHostInfo(
             [8, 5, 3, 5, 2, 9, 3, 10, 3, 2],
             address(12)
         );
-        players[3] = utils.createAndSetupSquadInfo(
+        players[3] = utils.createAndSetupHostInfo(
             [8, 5, 3, 7, 3, 9, 3, 5, 2, 5],
             address(13)
         );
-        players[4] = utils.createAndSetupSquadInfo(
+        players[4] = utils.createAndSetupHostInfo(
             [7, 4, 2, 6, 1, 7, 3, 10, 6, 4],
             address(14)
         );
 
-        joinMission(players, missionId);
-        game.startMission(missionId);
+        joinSpiral(players, spiralId);
+        game.startSpiral(spiralId);
 
-        // should start after countdown is over and mission is ready
-        uint8 anotherMissionId = 2;
-        game.createMission(anotherMissionId, 1, 0.2 ether, 3600);
+        // should start after countdown is over and spiral is ready
+        uint8 anotherSpiralId = 2;
+        game.createSpiral(anotherSpiralId, 1, 0.2 ether, 3600);
 
-        Utilities.SquadInfo memory player5 = utils.createAndSetupSquadInfo(
+        Utilities.HostInfo memory player5 = utils.createAndSetupHostInfo(
             [8, 4, 2, 6, 1, 7, 3, 10, 6, 3],
             address(15)
         );
-        vm.startPrank(player5.lider);
-        utils.fundSpecificAddress(player5.lider);
-        game.createSquad(player5.attributes);
-        game.joinMission{value: 0.2 ether}(player5.squadId, anotherMissionId);
-        (, , LucidSwirl.SquadState squadInfoState) = game.squads(
-            player5.squadId
+        vm.startPrank(player5.pass);
+        utils.fundSpecificAddress(player5.pass);
+        game.createHost(player5.attributes);
+        game.joinSpiral{value: 0.2 ether}(player5.hostId, anotherSpiralId);
+        (, , LucidSwirl.HostState hostInfoState) = game.hosts(
+            player5.hostId
         );
-        assertTrue(squadInfoState == LucidSwirl.SquadState.Ready);
+        assertTrue(hostInfoState == LucidSwirl.HostState.Ready);
         vm.stopPrank();
 
-        (, , , , , , , , , LucidSwirl.MissionState state) = game.missions(
-            anotherMissionId
+        (, , , , , , , , , LucidSwirl.SpiralState state) = game.spirals(
+            anotherSpiralId
         );
-        assertTrue(state == LucidSwirl.MissionState.Ready);
+        assertTrue(state == LucidSwirl.SpiralState.Ready);
 
-        // should revert if the host is playing in another mission
-        vm.expectRevert(LucidSwirl.SquadInMission.selector);
-        vm.startPrank(players[0].lider);
-        game.joinMission{value: 0.2 ether}(
-            players[0].squadId,
-            anotherMissionId
+        // should revert if the host is playing in another spiral
+        vm.expectRevert(LucidSwirl.HostInSpiral.selector);
+        vm.startPrank(players[0].pass);
+        game.joinSpiral{value: 0.2 ether}(
+            players[0].hostId,
+            anotherSpiralId
         );
 
         vm.warp(block.timestamp + 3600);
 
-        Utilities.SquadInfo memory player6 = utils.createAndSetupSquadInfo(
+        Utilities.HostInfo memory player6 = utils.createAndSetupHostInfo(
             [7, 8, 2, 6, 1, 7, 3, 10, 2, 4],
             address(16)
         );
-        vm.startPrank(player6.lider);
-        utils.fundSpecificAddress(player6.lider);
-        game.createSquad(player6.attributes);
+        vm.startPrank(player6.pass);
+        utils.fundSpecificAddress(player6.pass);
+        game.createHost(player6.attributes);
 
-        game.joinMission{value: 0.2 ether}(player6.squadId, anotherMissionId);
-        (, , LucidSwirl.SquadState squadInfoState1) = game.squads(
-            player6.squadId
+        game.joinSpiral{value: 0.2 ether}(player6.hostId, anotherSpiralId);
+        (, , LucidSwirl.HostState hostInfoState1) = game.hosts(
+            player6.hostId
         );
-        assertTrue(squadInfoState1 == LucidSwirl.SquadState.InMission);
+        assertTrue(hostInfoState1 == LucidSwirl.HostState.InSpiral);
         vm.stopPrank();
 
-        (, , , , , , , , , LucidSwirl.MissionState state1) = game.missions(
-            anotherMissionId
+        (, , , , , , , , , LucidSwirl.SpiralState state1) = game.spirals(
+            anotherSpiralId
         );
-        assertTrue(state1 == LucidSwirl.MissionState.InProgress);
+        assertTrue(state1 == LucidSwirl.SpiralState.InProgress);
 
-        (, , squadInfoState) = game.squads(player5.squadId);
-        assertTrue(squadInfoState == LucidSwirl.SquadState.InMission);
+        (, , hostInfoState) = game.hosts(player5.hostId);
+        assertTrue(hostInfoState == LucidSwirl.HostState.InSpiral);
 
-        (, , squadInfoState1) = game.squads(player6.squadId);
-        assertTrue(squadInfoState1 == LucidSwirl.SquadState.InMission);
+        (, , hostInfoState1) = game.hosts(player6.hostId);
+        assertTrue(hostInfoState1 == LucidSwirl.HostState.InSpiral);
 
-        // should revert if host is not the leader
-        // should revert if the mission is not ready
+        // should revert if host is not the pass
+        // should revert if the spiral is not ready
         // should revert if host is not formed
         // should revert if payment is not enough
     }
 
-    function testFinishMission() public {
+    function testFinishSpiral() public {
         vm.pauseGasMetering();
-        uint8 missionId = 1;
-        game.createMission(missionId, 5, 0.1 ether, 60);
+        uint8 spiralId = 1;
+        game.createSpiral(spiralId, 5, 0.1 ether, 60);
 
-        Utilities.SquadInfo[] memory players = new Utilities.SquadInfo[](5);
-        players[0] = utils.createAndSetupSquadInfo(
+        Utilities.HostInfo[] memory players = new Utilities.HostInfo[](5);
+        players[0] = utils.createAndSetupHostInfo(
             [8, 5, 3, 7, 1, 9, 3, 10, 2, 2],
             address(10)
         );
-        players[1] = utils.createAndSetupSquadInfo(
+        players[1] = utils.createAndSetupHostInfo(
             [6, 7, 3, 7, 1, 9, 3, 10, 2, 2],
             address(11)
         );
-        players[2] = utils.createAndSetupSquadInfo(
+        players[2] = utils.createAndSetupHostInfo(
             [8, 5, 3, 5, 2, 9, 3, 10, 3, 2],
             address(12)
         );
-        players[3] = utils.createAndSetupSquadInfo(
+        players[3] = utils.createAndSetupHostInfo(
             [8, 5, 3, 7, 3, 9, 3, 5, 2, 5],
             address(13)
         );
-        players[4] = utils.createAndSetupSquadInfo(
+        players[4] = utils.createAndSetupHostInfo(
             [7, 4, 2, 6, 1, 7, 3, 10, 6, 4],
             address(14)
         );
 
-        joinMission(players, missionId);
+        joinSpiral(players, spiralId);
 
-        game.startMission(missionId);
+        game.startSpiral(spiralId);
 
         uint256 requestId = 1;
         vrfCoordinator.fulfillRandomWords(requestId, address(game));
@@ -375,18 +375,18 @@ contract LucidSwirlTest is Test {
 
         requestId = 5;
         vm.expectEmit(true, true, true, true);
-        emit SquadEliminated(missionId, players[4].squadId);
-        emit SquadEliminated(missionId, players[3].squadId);
-        emit SquadEliminated(missionId, players[2].squadId);
-        emit SquadEliminated(missionId, players[1].squadId);
-        emit MissionFinished(missionId, players[0].squadId);
+        emit HostEliminated(spiralId, players[4].hostId);
+        emit HostEliminated(spiralId, players[3].hostId);
+        emit HostEliminated(spiralId, players[2].hostId);
+        emit HostEliminated(spiralId, players[1].hostId);
+        emit SpiralFinished(spiralId, players[0].hostId);
         vrfCoordinator.fulfillRandomWords(requestId, address(game));
         checkWords(requestId);
 
-        vm.startPrank(players[0].lider);
+        vm.startPrank(players[0].pass);
         vm.expectEmit(true, true, true, true);
-        emit RewardClaimed(missionId, players[0].lider, 0.5 ether);
-        game.claimReward(missionId);
+        emit RewardClaimed(spiralId, players[0].pass, 0.5 ether);
+        game.claimReward(spiralId);
         vm.stopPrank();
     }
 
@@ -402,16 +402,16 @@ contract LucidSwirlTest is Test {
         }
     }
 
-    function joinMission(
-        Utilities.SquadInfo[] memory players,
-        uint8 missionId
+    function joinSpiral(
+        Utilities.HostInfo[] memory players,
+        uint8 spiralId
     ) private {
         for (uint8 i = 0; i < players.length; i++) {
-            vm.startPrank(players[i].lider);
-            utils.fundSpecificAddress(players[i].lider);
+            vm.startPrank(players[i].pass);
+            utils.fundSpecificAddress(players[i].pass);
 
-            game.createSquad(players[i].attributes);
-            game.joinMission{value: 0.1 ether}(players[i].squadId, missionId);
+            game.createHost(players[i].attributes);
+            game.joinSpiral{value: 0.1 ether}(players[i].hostId, spiralId);
             vm.stopPrank();
         }
     }

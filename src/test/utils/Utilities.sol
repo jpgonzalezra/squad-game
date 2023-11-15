@@ -11,9 +11,9 @@ contract Utilities is DSTest {
     Vm internal immutable vm = Vm(HEVM_ADDRESS);
     bytes32 internal nextUser = keccak256(abi.encodePacked("user address"));
 
-    struct SquadInfo {
-        address lider;
-        bytes32 squadId;
+    struct HostInfo {
+        address pass;
+        bytes32 hostId;
         uint8[10] attributes;
     }
 
@@ -48,7 +48,7 @@ contract Utilities is DSTest {
         return words;
     }
 
-    function createSquad(
+    function createHost(
         uint8 attr1,
         uint8 attr2,
         uint8 attr3,
@@ -59,7 +59,7 @@ contract Utilities is DSTest {
         uint8 attr8,
         uint8 attr9,
         uint8 attr10
-    ) public pure returns (bytes32 squadId, uint8[10] memory attributes) {
+    ) public pure returns (bytes32 hostId, uint8[10] memory attributes) {
         attributes = uint8[10](
             [
                 attr1,
@@ -75,7 +75,7 @@ contract Utilities is DSTest {
             ]
         );
 
-        squadId = keccak256(
+        hostId = keccak256(
             abi.encodePacked(
                 [
                     attr1,
@@ -93,11 +93,11 @@ contract Utilities is DSTest {
         );
     }
 
-    function createAndSetupSquadInfo(
+    function createAndSetupHostInfo(
         uint8[10] memory attributes,
-        address leader
-    ) public pure returns (SquadInfo memory) {
-        (bytes32 squadId, uint8[10] memory squadAttributes) = createSquad(
+        address pass
+    ) public pure returns (HostInfo memory) {
+        (bytes32 hostId, uint8[10] memory hostAttributes) = createHost(
             attributes[0],
             attributes[1],
             attributes[2],
@@ -110,10 +110,10 @@ contract Utilities is DSTest {
             attributes[9]
         );
         return
-            SquadInfo({
-                lider: leader,
-                squadId: squadId,
-                attributes: squadAttributes
+            HostInfo({
+                pass: pass,
+                hostId: hostId,
+                attributes: hostAttributes
             });
     }
 }
