@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.21;
 
-import "../SquadGame.sol";
+import "../LucidSwirl.sol";
 import "./mocks/MockVRFCoordinatorV2.sol";
 import "./mocks/LinkToken.sol";
 import "forge-std/Test.sol";
@@ -9,7 +9,7 @@ import {Vm} from "forge-std/Vm.sol";
 import {Utilities} from "./utils/Utilities.sol";
 // import "forge-std/console.sol";
 
-contract SquadGameTest is Test {
+contract LucidSwirlTest is Test {
     event SquadCreated(address lider, bytes32 squadId, uint8[10] attributes);
     event MissionCreated(uint8 missionId);
     event MissionJoined(bytes32 squadId, uint8 missionId);
@@ -22,7 +22,7 @@ contract SquadGameTest is Test {
 
     LinkToken public linkToken;
     MockVRFCoordinatorV2 public vrfCoordinator;
-    SquadGame public game;
+    LucidSwirl public game;
     Utilities internal utils;
 
     uint96 constant FUND_AMOUNT = 1 * 10 ** 18;
@@ -39,7 +39,7 @@ contract SquadGameTest is Test {
         vrfCoordinator = new MockVRFCoordinatorV2();
         subId = vrfCoordinator.createSubscription();
         vrfCoordinator.fundSubscription(subId, FUND_AMOUNT);
-        game = new SquadGame(
+        game = new LucidSwirl(
             keyHash,
             address(vrfCoordinator),
             subId,
@@ -75,12 +75,12 @@ contract SquadGameTest is Test {
             uint8 minParticipantsPerMission,
             uint8 registered,
             uint8 round,
-            SquadGame.MissionState state
+            LucidSwirl.MissionState state
         ) = game.missions(1);
         assertTrue(winner == address(0));
         assertTrue(id == 1);
         assertTrue(round == 1);
-        assertTrue(state == SquadGame.MissionState.Ready);
+        assertTrue(state == LucidSwirl.MissionState.Ready);
         assertTrue(minParticipantsPerMission == 8);
         assertTrue(countdownDelay == 60);
         assertTrue(countdown == 0);
@@ -92,7 +92,7 @@ contract SquadGameTest is Test {
     function testAlreadyMission() public {
         uint8 missionId = 1;
         game.createMission(missionId, 1, 0.1 ether, 60);
-        vm.expectRevert(SquadGame.AlreadyMission.selector);
+        vm.expectRevert(LucidSwirl.AlreadyMission.selector);
         game.createMission(missionId, 1, 0.1 ether, 60);
     }
 
@@ -134,7 +134,7 @@ contract SquadGameTest is Test {
         assertTrue(attributes[9] == 2);
 
         // should revert if squad already exists
-        vm.expectRevert(SquadGame.SquadAlreadyExist.selector);
+        vm.expectRevert(LucidSwirl.SquadAlreadyExist.selector);
         game.createSquad(attributes);
 
         // should revert if attributes are invalid
@@ -151,7 +151,7 @@ contract SquadGameTest is Test {
             2
         );
 
-        vm.expectRevert(SquadGame.InvalidAttribute.selector);
+        vm.expectRevert(LucidSwirl.InvalidAttribute.selector);
         game.createSquad(invalidAttribute);
 
         // should revert if attributes are invalid, the sum of attributes should be 50
@@ -167,7 +167,7 @@ contract SquadGameTest is Test {
             2,
             2
         );
-        vm.expectRevert(SquadGame.AttributesSumNot50.selector);
+        vm.expectRevert(LucidSwirl.AttributesSumNot50.selector);
         game.createSquad(invalidAttributes);
 
         vm.stopPrank();
@@ -219,7 +219,7 @@ contract SquadGameTest is Test {
         game.createSquad(attributes1);
 
         vm.stopPrank();
-        vm.expectRevert(SquadGame.NotALider.selector);
+        vm.expectRevert(LucidSwirl.NotALider.selector);
         game.joinMission{value: 0.1 ether}(squadId, missionId);
 
         // should revert if the mission is not ready
@@ -273,19 +273,19 @@ contract SquadGameTest is Test {
         utils.fundSpecificAddress(player5.lider);
         game.createSquad(player5.attributes);
         game.joinMission{value: 0.2 ether}(player5.squadId, anotherMissionId);
-        (, , SquadGame.SquadState squadInfoState) = game.squads(
+        (, , LucidSwirl.SquadState squadInfoState) = game.squads(
             player5.squadId
         );
-        assertTrue(squadInfoState == SquadGame.SquadState.Ready);
+        assertTrue(squadInfoState == LucidSwirl.SquadState.Ready);
         vm.stopPrank();
 
-        (, , , , , , , , , SquadGame.MissionState state) = game.missions(
+        (, , , , , , , , , LucidSwirl.MissionState state) = game.missions(
             anotherMissionId
         );
-        assertTrue(state == SquadGame.MissionState.Ready);
+        assertTrue(state == LucidSwirl.MissionState.Ready);
 
         // should revert if the squad is playing in another mission
-        vm.expectRevert(SquadGame.SquadInMission.selector);
+        vm.expectRevert(LucidSwirl.SquadInMission.selector);
         vm.startPrank(players[0].lider);
         game.joinMission{value: 0.2 ether}(
             players[0].squadId,
@@ -303,22 +303,22 @@ contract SquadGameTest is Test {
         game.createSquad(player6.attributes);
 
         game.joinMission{value: 0.2 ether}(player6.squadId, anotherMissionId);
-        (, , SquadGame.SquadState squadInfoState1) = game.squads(
+        (, , LucidSwirl.SquadState squadInfoState1) = game.squads(
             player6.squadId
         );
-        assertTrue(squadInfoState1 == SquadGame.SquadState.InMission);
+        assertTrue(squadInfoState1 == LucidSwirl.SquadState.InMission);
         vm.stopPrank();
 
-        (, , , , , , , , , SquadGame.MissionState state1) = game.missions(
+        (, , , , , , , , , LucidSwirl.MissionState state1) = game.missions(
             anotherMissionId
         );
-        assertTrue(state1 == SquadGame.MissionState.InProgress);
+        assertTrue(state1 == LucidSwirl.MissionState.InProgress);
 
         (, , squadInfoState) = game.squads(player5.squadId);
-        assertTrue(squadInfoState == SquadGame.SquadState.InMission);
+        assertTrue(squadInfoState == LucidSwirl.SquadState.InMission);
 
         (, , squadInfoState1) = game.squads(player6.squadId);
-        assertTrue(squadInfoState1 == SquadGame.SquadState.InMission);
+        assertTrue(squadInfoState1 == LucidSwirl.SquadState.InMission);
 
         // should revert if squad is not the leader
         // should revert if the mission is not ready

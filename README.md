@@ -1,16 +1,34 @@
 # Squad game
 
-- [Getting Started](#getting-started)
-  - [Requirements](#requirements)
-  - [Quickstart](#quickstart)
-  - [Testing](#testing)
-- [Deploying to a network](#deploying-to-a-network)
-  - [Setup](#setup)
-  - [Deploying](#deploying)
-    - [Working with a local network](#working-with-a-local-network)
-    - [Working with other chains](#working-with-other-chains)
-- [Security](#security)
-- [Contributing](#contributing)
+-game
+  -
+  -
+-tec
+  - [Getting Started](#getting-started)
+    - [Requirements](#requirements)
+    - [Quickstart](#quickstart)
+    - [Testing](#testing)
+  - [Deploying to a network](#deploying-to-a-network)
+    - [Setup](#setup)
+    - [Deploying](#deploying)
+      - [Working with a local network](#working-with-a-local-network)
+      - [Working with other chains](#working-with-other-chains)
+  - [Security](#security)
+  - [Contributing](#contributing)
+
+
+# Attributes
+
+- Strength: Determines physical power and ability to carry heavy loads.
+- Endurance: Reflects stamina and resistance to fatigue during prolonged activities.
+- Acrobatics: Influences circus-worthy acrobatics, making the player a nimble ninja in the wilderness.
+- Brainiac: Governs their nerdy intelligence, ability to invent quirky gadgets, and useless trivia knowledge.
+- Perception: Affects awareness, alertness, and the ability to detect subtle details in the environment.
+- Zen-Fu: Represents inner peace and mindfulness, helping the player stay calm in the face of chaotic survival situations.
+- Dexterity: Governs hand-eye coordination, fine motor skills, and overall precision in movement.
+- Charm-o-Meter: Measures the player's charisma, enchanting both humans and woodland creatures alike.
+- Adapt-o-matic: Reflects their shape-shifting skills, turning adversity into opportunities with a dash of humor.
+- Karma: Reflects the player's cosmic balance, influencing the consequences of their actions and the universe's response.
 
 
 # Getting Started

@@ -8,12 +8,12 @@ import {VRFConsumerBaseV2} from "@chainlink/contracts/src/v0.8/VRFConsumerBaseV2
 // import "forge-std/console.sol";
 
 /**
- * @title SquadGame
- * @author jpgonzalezra
- * @notice SquadGame is a game where you can create a squad team and join a mission to fight against other squads.
+ * @title LucidSwirl
+ * @author jpgonzalezra, 0xhermit
+ * @notice LucidSwirl is a game where you can create a squad team and join a mission to fight against other squads.
  *
  */
-contract SquadGame is VRFConsumerBaseV2, Owned {
+contract LucidSwirl is VRFConsumerBaseV2, Owned {
     VRFCoordinatorV2Interface immutable COORDINATOR;
 
     // events

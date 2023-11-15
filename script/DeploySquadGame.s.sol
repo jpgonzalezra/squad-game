@@ -2,7 +2,7 @@
 pragma solidity ^0.8.7;
 
 import "forge-std/Script.sol";
-import "../src/SquadGame.sol";
+import "../src/LucidSwirl.sol";
 import "./HelperConfig.sol";
 import "../src/test/mocks/LinkToken.sol";
 import "../src/test/mocks/MockVRFCoordinatorV2.sol";
@@ -33,7 +33,7 @@ contract DeploySquadGame is Script, HelperConfig {
 
         vm.startBroadcast();
 
-        new SquadGame(
+        new LucidSwirl(
             keyHash,
             vrfCoordinator,
             subscriptionId,

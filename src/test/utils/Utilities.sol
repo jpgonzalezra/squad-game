@@ -3,7 +3,7 @@ pragma solidity 0.8.21;
 
 import {DSTest} from "ds-test/test.sol";
 import {Vm} from "forge-std/Vm.sol";
-import "../../SquadGame.sol";
+import "../../LucidSwirl.sol";
 // import "forge-std/console.sol";
 
 // common utilities for forge tests
