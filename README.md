@@ -31,6 +31,10 @@
 - Karma: Reflects the player's cosmic balance, influencing the consequences of their actions and the universe's response.
 
 
+
+Taiko: round.
+
+
 # Getting Started
 
 ## Requirements
@@ -91,7 +95,7 @@ make deploy-sepolia contract=<CONTRACT_NAME>
 For example:
 
 ```
-make deploy-sepolia contract=SquadGame
+make deploy-sepolia contract=LucidSwirl
 ```
 
 This will run the forge script, the script it's running is:

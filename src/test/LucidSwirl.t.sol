@@ -14,11 +14,11 @@ contract LucidSwirlTest is Test {
     event SpiralCreated(uint8 spiralId);
     event SpiralJoined(bytes32 hostId, uint8 spiralId);
     event SpiralStarted(uint8 spiralId, uint256 requestId);
-    event RoundPlayed(uint8 spiralId, uint scenaryId, uint8 round);
+    event TaikoPlayed(uint8 spiralId, uint xerealId, uint8 taiko);
     event RequestedLeaderboard(bytes32 indexed requestId, uint256 value);
-    event HostEliminated(uint8 spiralId, bytes32 winner);
-    event SpiralFinished(uint8 spiralId, bytes32 winner);
-    event RewardClaimed(uint8 spiralId, address winner, uint256 amount);
+    event HostEliminated(uint8 spiralId, bytes32 survivor);
+    event SpiralFinished(uint8 spiralId, bytes32 survivor);
+    event RewardClaimed(uint8 spiralId, address survivor, uint256 amount);
 
     LinkToken public linkToken;
     MockVRFCoordinatorV2 public vrfCoordinator;
@@ -31,7 +31,7 @@ contract LucidSwirlTest is Test {
     uint64 subId;
     bytes32 keyHash; // gasLane
 
-    event ReturnedRandomness(uint256[] randomWords);
+    event ReturnedTabaroth(uint256[] randomWords);
 
     function setUp() public {
         utils = new Utilities();
@@ -66,22 +66,22 @@ contract LucidSwirlTest is Test {
         emit SpiralCreated(1);
         game.createSpiral(1, 8, 0.1 ether, 60);
         (
-            address winner,
+            address survivor,
             uint256 countdown,
             uint256 rewards,
             uint256 fee,
             uint16 countdownDelay,
             uint8 id,
-            uint8 minParticipantsPerSpiral,
+            uint8 minHostsPerSpiral,
             uint8 registered,
-            uint8 round,
+            uint8 taiko,
             LucidSwirl.SpiralState state
         ) = game.spirals(1);
-        assertTrue(winner == address(0));
+        assertTrue(survivor == address(0));
         assertTrue(id == 1);
-        assertTrue(round == 1);
+        assertTrue(taiko == 1);
         assertTrue(state == LucidSwirl.SpiralState.Ready);
-        assertTrue(minParticipantsPerSpiral == 8);
+        assertTrue(minHostsPerSpiral == 8);
         assertTrue(countdownDelay == 60);
         assertTrue(countdown == 0);
         assertTrue(registered == 0);
@@ -219,7 +219,7 @@ contract LucidSwirlTest is Test {
         game.createHost(attributes1);
 
         vm.stopPrank();
-        vm.expectRevert(LucidSwirl.NotALider.selector);
+        vm.expectRevert(LucidSwirl.NotAHost.selector);
         game.joinSpiral{value: 0.1 ether}(hostId, spiralId);
 
         // should revert if the spiral is not ready
@@ -396,9 +396,9 @@ contract LucidSwirlTest is Test {
             game.NUMWORDS() - 1,
             10
         );
-        (uint8[] memory randomness, ) = game.getRequest(requestId);
-        for (uint8 i = 0; i < randomness.length; i++) {
-            assertTrue(randomness[i] == words[i]);
+        (uint8[] memory tabaroth, ) = game.getRequest(requestId);
+        for (uint8 i = 0; i < tabaroth.length; i++) {
+            assertTrue(tabaroth[i] == words[i]);
         }
     }
 

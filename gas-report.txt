@@ -1,4 +1,4 @@
-| src/SquadGame.sol:SquadGame contract |                 |       |        |        |         |
+| src/LucidSwirl.sol:LucidSwirl contract |                 |       |        |        |         |
 |--------------------------------------|-----------------|-------|--------|--------|---------|
 | Deployment Cost                      | Deployment Size |       |        |        |         |
 | 2834894                              | 16846           |       |        |        |         |

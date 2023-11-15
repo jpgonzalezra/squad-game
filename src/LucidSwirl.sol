@@ -17,21 +17,21 @@ contract LucidSwirl is VRFConsumerBaseV2, Owned {
     VRFCoordinatorV2Interface immutable COORDINATOR;
 
     // events
-    event SpiralFinished(uint8 spiralId, bytes32 winner);
+    event SpiralFinished(uint8 spiralId, bytes32 survivor);
     event HostCreated(address pass, bytes32 hostId, uint8[10] attributes);
     event HostEliminated(uint8 spiralId, bytes32 hostId);
     event SpiralCreated(uint8 spiralId);
     event SpiralJoined(bytes32 hostId, uint8 spiralId);
     event SpiralStarted(uint8 spiralId, uint256 requestId);
-    event RoundPlayed(
+    event TaikoPlayed(
         uint8 spiralId,
-        uint24 scenaryId,
-        uint8 round,
+        uint24 xerealId,
+        uint8 taiko,
         uint256 nextRequestId
     );
     event RequestedLeaderboard(bytes32 indexed requestId, uint256 value);
-    event RandomnessReceived(uint256 indexed requestId, uint8[] randomness);
-    event RewardClaimed(uint8 spiralId, address winner, uint256 amount);
+    event TabarothReceived(uint256 indexed requestId, uint8[] tabaroth);
+    event RewardClaimed(uint8 spiralId, address survivor, uint256 amount);
 
     // chainlink constants and storage
     uint32 private constant CALLBACK_GASLIMIT = 200_000; // The gas limit for the random number callback
@@ -44,14 +44,14 @@ contract LucidSwirl is VRFConsumerBaseV2, Owned {
 
     struct ChainLinkRequest {
         uint8 spiralId;
-        uint8[] randomness;
-        uint8 scenaryId;
+        uint8[] tabaroth;
+        uint8 xerealId;
     }
 
     // miscellaneous constants
     error InvalidAttribute();
-    error InvalidScenary();
-    error InvalidScenaries();
+    error InvalidXereal();
+    error InvalidXereals();
     error AttributesSumNot50();
     error HostIsNotFormed();
     error HostAlreadyExist();
@@ -61,14 +61,14 @@ contract LucidSwirl is VRFConsumerBaseV2, Owned {
     error AlreadySpiral();
     error InvalidSpiralId();
     error InvalidCountdownDelay();
-    error NotEnoughParticipants();
+    error NotEnoughHosts();
     error UpgradeFeeNotMet();
-    error NotALider();
+    error NotAHost();
     error ParticipationFeeNotEnough();
-    error NotOwnerOrGame();
-    error InvalidMinParticipants();
+    error NotOwnerOrLucidSwirl();
+    error InvalidMinHosts();
     error InvalidClaim();
-    error RoundNotReady();
+    error TaikoNotReady();
     error SpiralInProgress();
 
     uint8[10][5] public incrementModifiers;
@@ -89,35 +89,35 @@ contract LucidSwirl is VRFConsumerBaseV2, Owned {
     }
 
     struct Spiral {
-        address payable winner;
+        address payable survivor;
         uint256 countdown;
         uint256 rewards;
         uint256 fee;
         uint16 countdownDelay; // 7 days as max countdown
         uint8 id;
-        uint8 minParticipantsPerSpiral;
+        uint8 minHostsPerSpiral;
         uint8 registered;
-        uint8 round;
+        uint8 taiko;
         SpiralState state;
     }
 
     struct Host {
         address payable pass;
+        // host address
         uint8 health;
         HostState state;
         uint8[10] attributes;
+        // [0] Strength: Determines physical power and ability to carry heavy loads.
+        // [1] Endurance: Reflects stamina and resistance to fatigue during prolonged activities.
+        // [2] Acrobatics: Influences circus-worthy acrobatics, making the player a nimble ninja in the wilderness.
+        // [3] Brainiac: Governs their nerdy intelligence, ability to invent quirky gadgets, and useless trivia knowledge.
+        // [4] Perception: Affects awareness, alertness, and the ability to detect subtle details in the environment.
+        // [5] Zen-Fu: Represents inner peace and mindfulness, helping the player stay calm in the face of chaotic survival situations.
+        // [6] Dexterity: Governs hand-eye coordination, fine motor skills, and overall precision in movement.
+        // [7] Charm-o-Meter: Measures the player's charisma, enchanting both humans and woodland creatures alike.
+        // [8] Adapt-o-matic: Reflects their shape-shifting skills, turning adversity into opportunities with a dash of humor.
+        // [9] Karma: Reflects the player's cosmic balance, influencing the consequences of their actions and the universe's response.
     }
-    // attributes:
-    // [0] Strength: Determines physical power and ability to carry heavy loads.
-    // [1] Endurance: Reflects stamina and resistance to fatigue during prolonged activities.
-    // [2] Acrobatics: Influences circus-worthy acrobatics, making the player a nimble ninja in the wilderness.
-    // [3] Brainiac: Governs their nerdy intelligence, ability to invent quirky gadgets, and useless trivia knowledge.
-    // [4] Perception: Affects awareness, alertness, and the ability to detect subtle details in the environment.
-    // [5] Zen-Fu: Represents inner peace and mindfulness, helping the player stay calm in the face of chaotic survival situations.
-    // [6] Dexterity: Governs hand-eye coordination, fine motor skills, and overall precision in movement.
-    // [7] Charm-o-Meter: Measures the player's charisma, enchanting both humans and woodland creatures alike.
-    // [8] Adapt-o-matic: Reflects their shape-shifting skills, turning adversity into opportunities with a dash of humor.
-    // [9] Karma: Reflects the player's cosmic balance, influencing the consequences of their actions and the universe's response.
 
     uint32 private constant ATTR_COUNT = 10;
 
@@ -130,15 +130,15 @@ contract LucidSwirl is VRFConsumerBaseV2, Owned {
     // request id => request
     mapping(uint256 => ChainLinkRequest) private requests;
 
-    modifier onlyOwnerOrGame() {
+    modifier onlyOwnerOrLucidSwirl() {
         if (msg.sender != owner && msg.sender != address(this)) {
-            revert NotOwnerOrGame();
+            revert NotOwnerOrLucidSwirl();
         }
         _;
     }
-    modifier onlyLider(bytes32 hostId) {
+    modifier onlyHost(bytes32 hostId) {
         if (hosts[hostId].pass != msg.sender) {
-            revert NotALider();
+            revert NotAHost();
         }
         _;
     }
@@ -155,7 +155,7 @@ contract LucidSwirl is VRFConsumerBaseV2, Owned {
         vrfSubscriptionId = _vrfSubscriptionId;
         COORDINATOR = VRFCoordinatorV2Interface(_vrfCoordinator);
 
-        verifyScenaries(_incrementModifiers, _decrementModifiers);
+        verifyXereals(_incrementModifiers, _decrementModifiers);
         incrementModifiers = _incrementModifiers;
         decrementModifiers = _decrementModifiers;
     }
@@ -185,7 +185,7 @@ contract LucidSwirl is VRFConsumerBaseV2, Owned {
     /// @param spiralId Id of the spiral.
     function createSpiral(
         uint8 spiralId,
-        uint8 minParticipants,
+        uint8 minHosts,
         uint256 fee,
         uint16 countdownDelay
     ) external onlyOwner {
@@ -200,15 +200,15 @@ contract LucidSwirl is VRFConsumerBaseV2, Owned {
         }
 
         spirals[spiralId] = Spiral({
-            winner: payable(address(0)),
+            survivor: payable(address(0)),
             id: spiralId,
-            minParticipantsPerSpiral: minParticipants,
+            minHostsPerSpiral: minHosts,
             state: SpiralState.Ready,
             fee: fee,
             registered: 0,
             countdown: 0,
             rewards: 0,
-            round: 1,
+            taiko: 1,
             countdownDelay: countdownDelay
         });
         emit SpiralCreated(spiralId);
@@ -216,15 +216,15 @@ contract LucidSwirl is VRFConsumerBaseV2, Owned {
 
     function claimReward(uint8 spiralId) external {
         Spiral storage spiral = spirals[spiralId];
-        if (spiral.winner == address(0) || spiral.rewards == 0) {
+        if (spiral.survivor == address(0) || spiral.rewards == 0) {
             revert InvalidClaim();
         }
 
         uint256 rewardsToTransfer = spiral.rewards;
         spiral.rewards = 0;
 
-        spiral.winner.transfer(rewardsToTransfer);
-        emit RewardClaimed(spiralId, spiral.winner, rewardsToTransfer);
+        spiral.survivor.transfer(rewardsToTransfer);
+        emit RewardClaimed(spiralId, spiral.survivor, rewardsToTransfer);
     }
 
     /// @notice Join the queue for the upcoming spiral.
@@ -233,7 +233,7 @@ contract LucidSwirl is VRFConsumerBaseV2, Owned {
     function joinSpiral(
         bytes32 hostId,
         uint8 spiralId
-    ) external payable onlyLider(hostId) {
+    ) external payable onlyHost(hostId) {
         Spiral storage spiral = spirals[spiralId];
         Host storage host = hosts[hostId];
         if (spiral.state != SpiralState.Ready) {
@@ -246,7 +246,7 @@ contract LucidSwirl is VRFConsumerBaseV2, Owned {
             revert ParticipationFeeNotEnough();
         }
         if (
-            spiral.minParticipantsPerSpiral > spiral.registered &&
+            spiral.minHostsPerSpiral > spiral.registered &&
             spiral.countdown == 0
         ) {
             spiral.countdown = block.timestamp;
@@ -267,15 +267,15 @@ contract LucidSwirl is VRFConsumerBaseV2, Owned {
     }
 
     /// @notice Execute the run when it is full.
-    function startSpiral(uint8 spiralId) public onlyOwnerOrGame {
+    function startSpiral(uint8 spiralId) public onlyOwnerOrLucidSwirl {
         if (spirals[spiralId].state == SpiralState.InProgress) {
             revert SpiralInProgress();
         }
         if (
             hostIdsBySpiral[spiralId].length <
-            spirals[spiralId].minParticipantsPerSpiral
+            spirals[spiralId].minHostsPerSpiral
         ) {
-            revert NotEnoughParticipants();
+            revert NotEnoughHosts();
         }
 
         bytes32[] memory hostIds = hostIdsBySpiral[spiralId];
@@ -288,21 +288,21 @@ contract LucidSwirl is VRFConsumerBaseV2, Owned {
             hosts[hostIds[i]].state = HostState.InSpiral;
         }
 
-        uint256 requestId = requestRandomness(3);
+        uint256 requestId = requestTabaroth(3);
         requests[requestId] = ChainLinkRequest({
-            scenaryId: 0,
+            xerealId: 0,
             spiralId: spiralId,
-            randomness: new uint8[](ATTR_COUNT)
+            tabaroth: new uint8[](ATTR_COUNT)
         });
 
         spirals[spiralId].state = SpiralState.InProgress;
         emit SpiralStarted(spiralId, requestId);
     }
 
-    /// @notice Requests randomness from a user-provided seed
+    /// @notice Requests tabaroth from a user-provided seed
     /// @dev The VRF subscription must be active and sufficient LINK must be available
     /// @return requestId The ID of the request
-    function requestRandomness(
+    function requestTabaroth(
         uint16 requestConfirmations
     ) public returns (uint256 requestId) {
         requestId = COORDINATOR.requestRandomWords(
@@ -325,7 +325,7 @@ contract LucidSwirl is VRFConsumerBaseV2, Owned {
         uint256 requestId
     ) external view returns (uint8[] memory, uint8) {
         ChainLinkRequest memory request = requests[requestId];
-        return (request.randomness, request.spiralId);
+        return (request.tabaroth, request.spiralId);
     }
 
     /**
@@ -333,41 +333,41 @@ contract LucidSwirl is VRFConsumerBaseV2, Owned {
      */
 
     /// @notice Execute the run when it is full.
-    function playRound(uint8 spiralId, uint256 requestId) internal {
+    function playTaiko(uint8 spiralId, uint256 requestId) internal {
         Spiral storage spiral = spirals[spiralId];
 
         bytes32[] storage currentHostIds = hostIdsBySpiral[spiralId];
-        uint8[] memory randomness = requests[requestId].randomness;
+        uint8[] memory tabaroth = requests[requestId].tabaroth;
 
-        uint8 scenaryId = requests[requestId].scenaryId;
+        uint8 xerealId = requests[requestId].xerealId;
         for (uint i = currentHostIds.length; i > 0; i--) {
             bytes32 hostId = currentHostIds[i - 1];
-            processHost(spiralId, hostId, scenaryId, randomness);
+            processHost(spiralId, hostId, xerealId, tabaroth);
 
             if (currentHostIds.length == 1) {
-                bytes32 winner = currentHostIds[0];
+                bytes32 survivor = currentHostIds[0];
                 delete hostIdsBySpiral[spiralId];
                 spiral.state = SpiralState.Completed;
-                spiral.winner = hosts[winner].pass;
+                spiral.survivor = hosts[survivor].pass;
                 hosts[hostId].state = HostState.NotReady;
-                emit SpiralFinished(spiralId, winner);
+                emit SpiralFinished(spiralId, survivor);
                 return;
             }
         }
 
         uint16 seconds_per_block_approximately = (spiral.countdownDelay *
-            spiral.round) / 15;
-        uint256 nextRequestId = requestRandomness(
+            spiral.taiko) / 15;
+        uint256 nextRequestId = requestTabaroth(
             seconds_per_block_approximately
         );
         requests[nextRequestId] = ChainLinkRequest({
-            scenaryId: 0,
+            xerealId: 0,
             spiralId: spiralId,
-            randomness: new uint8[](ATTR_COUNT)
+            tabaroth: new uint8[](ATTR_COUNT)
         });
 
-        spiral.round += 1;
-        emit RoundPlayed(spiralId, scenaryId, spiral.round, nextRequestId);
+        spiral.taiko += 1;
+        emit TaikoPlayed(spiralId, xerealId, spiral.taiko, nextRequestId);
     }
 
     /// @notice Callback function used by the VRF Coordinator to return the random number
@@ -375,20 +375,20 @@ contract LucidSwirl is VRFConsumerBaseV2, Owned {
         uint256 requestId,
         uint256[] memory randomWords
     ) internal override {
-        requests[requestId].scenaryId = uint8(
+        requests[requestId].xerealId = uint8(
             normalizeToRange(
                 randomWords[ATTR_COUNT],
                 incrementModifiers.length - 1
             )
         );
         for (uint256 i = 0; i < ATTR_COUNT; i++) {
-            requests[requestId].randomness[i] = normalizeToRange(
+            requests[requestId].tabaroth[i] = normalizeToRange(
                 randomWords[i],
                 ATTR_COUNT
             );
         }
-        emit RandomnessReceived(requestId, requests[requestId].randomness);
-        playRound(requests[requestId].spiralId, requestId);
+        emit TabarothReceived(requestId, requests[requestId].tabaroth);
+        playTaiko(requests[requestId].spiralId, requestId);
     }
 
     function verifyAttributes(
@@ -408,12 +408,12 @@ contract LucidSwirl is VRFConsumerBaseV2, Owned {
         }
     }
 
-    function verifyScenaries(
+    function verifyXereals(
         uint8[ATTR_COUNT][5] memory _incrementModifiers,
         uint8[ATTR_COUNT][5] memory _decrementModifiers
     ) internal pure {
         if (_incrementModifiers.length != _decrementModifiers.length) {
-            revert InvalidScenaries();
+            revert InvalidXereals();
         }
         for (uint256 i = 0; i < _incrementModifiers.length; i++) {
             for (uint256 j = 0; j < 10; j++) {
@@ -421,22 +421,19 @@ contract LucidSwirl is VRFConsumerBaseV2, Owned {
                     _incrementModifiers[i][j] > 0 &&
                     _decrementModifiers[i][j] > 0
                 ) {
-                    revert InvalidScenary();
+                    revert InvalidXereal();
                 }
                 if (
                     _incrementModifiers[i][j] > 2 ||
                     _decrementModifiers[i][j] > 2
                 ) {
-                    revert InvalidScenary();
+                    revert InvalidXereal();
                 }
             }
         }
     }
 
-    function removeHostIdFromSpiral(
-        uint8 spiralId,
-        bytes32 hostId
-    ) internal {
+    function removeHostIdFromSpiral(uint8 spiralId, bytes32 hostId) internal {
         bytes32[] storage hostIds = hostIdsBySpiral[spiralId];
         uint256 indexToRemove = hostIds.length;
         for (uint256 i = 0; i < hostIds.length; i++) {
@@ -483,17 +480,17 @@ contract LucidSwirl is VRFConsumerBaseV2, Owned {
     function processHost(
         uint8 spiralId,
         bytes32 hostId,
-        uint8 scenaryId,
-        uint8[] memory randomness
+        uint8 xerealId,
+        uint8[] memory tabaroth
     ) internal {
         Host storage host = hosts[hostId];
         for (uint j = 0; j < ATTR_COUNT; j++) {
             uint8 adjustedHostAttr = adjustAttribute(
                 host.attributes[j],
-                incrementModifiers[scenaryId][j],
-                decrementModifiers[scenaryId][j]
+                incrementModifiers[xerealId][j],
+                decrementModifiers[xerealId][j]
             );
-            if (randomness[j] > adjustedHostAttr) {
+            if (tabaroth[j] > adjustedHostAttr) {
                 if (host.health > 1) {
                     host.health--;
                 } else {

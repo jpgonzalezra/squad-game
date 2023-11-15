@@ -7,7 +7,7 @@ import "./HelperConfig.sol";
 import "../src/test/mocks/LinkToken.sol";
 import "../src/test/mocks/MockVRFCoordinatorV2.sol";
 
-contract DeploySquadGame is Script, HelperConfig {
+contract DeployLucidSwirl is Script, HelperConfig {
     function run() external {
         HelperConfig helperConfig = new HelperConfig();
 
