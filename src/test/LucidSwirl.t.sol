@@ -97,7 +97,7 @@ contract LucidSwirlTest is Test {
     }
 
     function testCreateSquad() public {
-        // create squad successfully
+        // create host successfully
         address owner = address(1);
         vm.startPrank(owner);
         (bytes32 squadId, uint8[10] memory attributes) = utils.createSquad(
@@ -133,7 +133,7 @@ contract LucidSwirlTest is Test {
         assertTrue(attributes[8] == 2);
         assertTrue(attributes[9] == 2);
 
-        // should revert if squad already exists
+        // should revert if host already exists
         vm.expectRevert(LucidSwirl.SquadAlreadyExist.selector);
         game.createSquad(attributes);
 
@@ -200,7 +200,7 @@ contract LucidSwirlTest is Test {
         game.joinMission{value: 0.1 ether}(squadId, missionId);
         vm.stopPrank();
 
-        // should revert if squad is not the leader
+        // should revert if host is not the leader
         address bob = address(3);
         utils.fundSpecificAddress(bob);
         vm.startPrank(bob);
@@ -225,7 +225,7 @@ contract LucidSwirlTest is Test {
         // should revert if the mission is not ready
         // TODO:
 
-        // should revert if squad is not formed
+        // should revert if host is not formed
         // TODO:
 
         // should revert if payment is not enough
@@ -284,7 +284,7 @@ contract LucidSwirlTest is Test {
         );
         assertTrue(state == LucidSwirl.MissionState.Ready);
 
-        // should revert if the squad is playing in another mission
+        // should revert if the host is playing in another mission
         vm.expectRevert(LucidSwirl.SquadInMission.selector);
         vm.startPrank(players[0].lider);
         game.joinMission{value: 0.2 ether}(
@@ -320,9 +320,9 @@ contract LucidSwirlTest is Test {
         (, , squadInfoState1) = game.squads(player6.squadId);
         assertTrue(squadInfoState1 == LucidSwirl.SquadState.InMission);
 
-        // should revert if squad is not the leader
+        // should revert if host is not the leader
         // should revert if the mission is not ready
-        // should revert if squad is not formed
+        // should revert if host is not formed
         // should revert if payment is not enough
     }
 

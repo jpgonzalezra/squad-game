@@ -10,7 +10,7 @@ import {VRFConsumerBaseV2} from "@chainlink/contracts/src/v0.8/VRFConsumerBaseV2
 /**
  * @title LucidSwirl
  * @author jpgonzalezra, 0xhermit
- * @notice LucidSwirl is a game where you can create a squad team and join a mission to fight against other squads.
+ * @notice LucidSwirl is a game where you can create a host team and join a mission to fight against other squads.
  *
  */
 contract LucidSwirl is VRFConsumerBaseV2, Owned {
@@ -75,9 +75,9 @@ contract LucidSwirl is VRFConsumerBaseV2, Owned {
     uint8[10][5] public decrementModifiers;
 
     enum SquadState {
-        NotReady, // The squad has not yet been formed
-        Ready, // The squad is ready for the mission but it has not yet started
-        InMission // The squad is currently in a mission
+        NotReady, // The host has not yet been formed
+        Ready, // The host is ready for the mission but it has not yet started
+        InMission // The host is currently in a mission
     }
 
     // mission storage
@@ -101,20 +101,31 @@ contract LucidSwirl is VRFConsumerBaseV2, Owned {
         MissionState state;
     }
 
-    struct Squad {
+    struct Host {
         address payable lider;
         uint8 health;
         SquadState state;
         uint8[10] attributes;
     }
+    // attributes:
+    // [0] Strength: Determines physical power and ability to carry heavy loads.
+    // [1] Endurance: Reflects stamina and resistance to fatigue during prolonged activities.
+    // [2] Acrobatics: Influences circus-worthy acrobatics, making the player a nimble ninja in the wilderness.
+    // [3] Brainiac: Governs their nerdy intelligence, ability to invent quirky gadgets, and useless trivia knowledge.
+    // [4] Perception: Affects awareness, alertness, and the ability to detect subtle details in the environment.
+    // [5] Zen-Fu: Represents inner peace and mindfulness, helping the player stay calm in the face of chaotic survival situations.
+    // [6] Dexterity: Governs hand-eye coordination, fine motor skills, and overall precision in movement.
+    // [7] Charm-o-Meter: Measures the player's charisma, enchanting both humans and woodland creatures alike.
+    // [8] Adapt-o-matic: Reflects their shape-shifting skills, turning adversity into opportunities with a dash of humor.
+    // [9] Karma: Reflects the player's cosmic balance, influencing the consequences of their actions and the universe's response.
 
     uint32 private constant ATTR_COUNT = 10;
 
-    // squad id => squad
-    mapping(bytes32 => Squad) public squads;
+    // host id => host
+    mapping(bytes32 => Host) public squads;
     // mission id => mission
     mapping(uint8 => Mission) public missions;
-    // mission id => squad ids
+    // mission id => host ids
     mapping(uint8 => bytes32[]) public squadIdsByMission;
     // request id => request
     mapping(uint256 => ChainLinkRequest) private requests;
@@ -149,8 +160,8 @@ contract LucidSwirl is VRFConsumerBaseV2, Owned {
         decrementModifiers = _decrementModifiers;
     }
 
-    /// @notice Create a squad team with the given attributes.
-    /// @param _attributes Attributes of the squad team.
+    /// @notice Create a host team with the given attributes.
+    /// @param _attributes Attributes of the host team.
     function createSquad(uint8[ATTR_COUNT] calldata _attributes) external {
         bytes32 squadId = keccak256(abi.encodePacked(_attributes));
         for (uint256 i = 0; i < ATTR_COUNT; i++) {
@@ -160,7 +171,7 @@ contract LucidSwirl is VRFConsumerBaseV2, Owned {
         }
         verifyAttributes(_attributes);
 
-        squads[squadId] = Squad({
+        squads[squadId] = Host({
             lider: payable(msg.sender),
             health: 20,
             attributes: _attributes,
@@ -217,18 +228,18 @@ contract LucidSwirl is VRFConsumerBaseV2, Owned {
     }
 
     /// @notice Join the queue for the upcoming mission.
-    /// @param squadId Id of the squad team.
+    /// @param squadId Id of the host team.
     /// @param missionId Id of the mission.
     function joinMission(
         bytes32 squadId,
         uint8 missionId
     ) external payable onlyLider(squadId) {
         Mission storage mission = missions[missionId];
-        Squad storage squad = squads[squadId];
+        Host storage host = squads[squadId];
         if (mission.state != MissionState.Ready) {
             revert MissionNotReady();
         }
-        if (squad.state != SquadState.NotReady) {
+        if (host.state != SquadState.NotReady) {
             revert SquadInMission();
         }
         if (msg.value < mission.fee) {
@@ -241,9 +252,9 @@ contract LucidSwirl is VRFConsumerBaseV2, Owned {
             mission.countdown = block.timestamp;
         }
 
-        squad.state = SquadState.Ready;
+        host.state = SquadState.Ready;
         if (block.timestamp >= mission.countdown + mission.countdownDelay) {
-            squad.state = SquadState.InMission;
+            host.state = SquadState.InMission;
             this.startMission(missionId);
         }
 
@@ -306,8 +317,8 @@ contract LucidSwirl is VRFConsumerBaseV2, Owned {
     function getSquad(
         bytes32 squadId
     ) external view returns (uint8[10] memory, uint8) {
-        Squad memory squad = squads[squadId];
-        return (squad.attributes, squad.health);
+        Host memory host = squads[squadId];
+        return (host.attributes, host.health);
     }
 
     function getRequest(
@@ -475,19 +486,19 @@ contract LucidSwirl is VRFConsumerBaseV2, Owned {
         uint8 scenaryId,
         uint8[] memory randomness
     ) internal {
-        Squad storage squad = squads[squadId];
+        Host storage host = squads[squadId];
         for (uint j = 0; j < ATTR_COUNT; j++) {
             uint8 adjustedSquadAttr = adjustAttribute(
-                squad.attributes[j],
+                host.attributes[j],
                 incrementModifiers[scenaryId][j],
                 decrementModifiers[scenaryId][j]
             );
             if (randomness[j] > adjustedSquadAttr) {
-                if (squad.health > 1) {
-                    squad.health--;
+                if (host.health > 1) {
+                    host.health--;
                 } else {
                     removeSquadIdFromMission(missionId, squadId);
-                    squad.state = SquadState.NotReady;
+                    host.state = SquadState.NotReady;
                     break;
                 }
             }
